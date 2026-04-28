@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaOS — Simulator</title>
+<link rel="stylesheet" href="../static/style.css">
+<style>
+/* ═══════════════════════════════════════
+   DEVICE FAILURE INJECTOR STYLES
+   ═══════════════════════════════════════ */
+.fail-panel {
+  background: var(--bg-card);
+  border: 1px solid rgba(255,61,61,0.35);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: 0 0 30px rgba(255,61,61,0.07), inset 0 0 60px rgba(255,30,30,0.02);
+}
+.fail-intro {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: rgba(255,61,61,0.05);
+  border-bottom: 1px solid rgba(255,61,61,0.2);
+}
+.fail-intro-icon { font-size: 1.6rem; flex-shrink: 0; }
+
+.fail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+/* Per-device row layout inside each tank failure card */
+.fdev-section-title {
+  font-family: var(--f-mono);
+  font-size: .6rem;
+  letter-spacing: .1em;
+  color: var(--tx-lo);
+  padding: 5px 0 3px;
+  border-bottom: 1px solid var(--bdr);
+  margin-bottom: 4px;
+}
+.fdev-rows { display: flex; flex-direction: column; gap: 3px; }
+.fdev-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid transparent;
+  transition: background .2s, border-color .2s;
+}
+.fdev-row.row-failing {
+  background: rgba(255,30,30,.05);
+  border-color: rgba(255,61,61,.22);
+}
+.fdev-row-icon { font-size: .9rem; flex-shrink: 0; width: 20px; text-align: center; }
+.fdev-row-name {
+  font-family: var(--f-mono);
+  font-size: .67rem;
+  color: var(--tx-mid);
+  flex: 1;
+  white-space: nowrap;
+}
+.fdev-row.row-failing .fdev-row-name { color: var(--tx-hi); }
+.fdev-row-status {
+  font-family: var(--f-mono);
+  font-size: .57rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.fdev-row-status.rst-ok   { background: var(--ok-bg);    color: var(--ok);    border: 1px solid var(--ok-bdr); }
+.fdev-row-status.rst-fail { background: var(--alert-bg); color: var(--alert); border: 1px solid var(--alert-bdr); animation: alertPulse 1.5s ease-in-out infinite; }
+.fdev-row-btn {
+  font-family: var(--f-mono);
+  font-size: .6rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: .05em;
+  transition: all .2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.rbtn-fail {
+  background: rgba(255,61,61,.1);
+  border: 1px solid rgba(255,61,61,.3);
+  color: var(--alert);
+}
+.rbtn-fail:hover { background: rgba(255,61,61,.25); border-color: var(--alert); }
+.rbtn-recover {
+  background: rgba(0,232,124,.1);
+  border: 1px solid rgba(0,232,124,.3);
+  color: var(--ok);
+}
+.rbtn-recover:hover { background: rgba(0,232,124,.22); border-color: var(--ok); }
+
+/* Single device failure card */
+.fdev-card {
+  background: var(--bg-inset);
+  border: 1px solid var(--bdr);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.fdev-card.is-failing {
+  border-color: rgba(255,61,61,0.5);
+  box-shadow: 0 0 20px rgba(255,61,61,0.12);
+  background: rgba(255,20,20,0.04);
+}
+.fdev-card.is-failing::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--alert);
+  border-radius: 2px 0 0 2px;
+  animation: alertPulse 1.5s ease-in-out infinite;
+}
+.fdev-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.fdev-id {
+  font-family: var(--f-mono);
+  font-size: .68rem;
+  color: var(--tx-lo);
+  letter-spacing: .1em;
+}
+.fdev-name {
+  font-family: var(--f-mono);
+  font-size: .86rem;
+  font-weight: 700;
+  color: var(--tx-hi);
+  margin-top: 2px;
+}
+.fdev-status {
+  font-family: var(--f-mono);
+  font-size: .65rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.fdev-status.st-ok      { background: var(--ok-bg);   color: var(--ok);   border: 1px solid var(--ok-bdr); }
+.fdev-status.st-failing { background: var(--alert-bg); color: var(--alert); border: 1px solid var(--alert-bdr); animation: alertPulse 1.5s ease-in-out infinite; }
+
+/* Failure type selector */
+.fail-type-row {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.ftype-btn {
+  font-family: var(--f-mono);
+  font-size: .63rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: .05em;
+  transition: all .2s;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.ftype-btn.t-offline { background: rgba(69,90,112,.15); color: #7090aa; border-color: rgba(69,90,112,.3); }
+.ftype-btn.t-offline:hover, .ftype-btn.t-offline.sel { background: rgba(69,90,112,.35); color: #a0c0d8; border-color: rgba(100,140,170,.6); }
+.ftype-btn.t-sensor  { background: rgba(255,100,50,.08); color: #ff8c42; border-color: rgba(255,100,50,.25); }
+.ftype-btn.t-sensor:hover, .ftype-btn.t-sensor.sel  { background: rgba(255,100,50,.25); color: #ffaa70; border-color: rgba(255,100,50,.6); }
+.ftype-btn.t-frozen  { background: rgba(0,200,255,.08); color: var(--cyan); border-color: rgba(0,200,255,.2); }
+.ftype-btn.t-frozen:hover, .ftype-btn.t-frozen.sel  { background: rgba(0,200,255,.2); color: #40d8ff; border-color: rgba(0,200,255,.5); }
+.ftype-btn.t-power   { background: rgba(255,167,38,.08); color: var(--warn); border-color: rgba(255,167,38,.25); }
+.ftype-btn.t-power:hover, .ftype-btn.t-power.sel   { background: rgba(255,167,38,.22); color: #ffc060; border-color: rgba(255,167,38,.6); }
+
+.fdev-trigger-btn {
+  font-family: var(--f-mono);
+  font-size: .72rem;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  letter-spacing: .08em;
+  transition: all .2s;
+  text-align: center;
+}
+.fdev-trigger-btn.arm {
+  background: rgba(255,61,61,.12);
+  border: 1px solid rgba(255,61,61,.35);
+  color: var(--alert);
+}
+.fdev-trigger-btn.arm:hover {
+  background: rgba(255,61,61,.25);
+  border-color: var(--alert);
+  box-shadow: 0 0 12px rgba(255,61,61,.25);
+}
+.fdev-trigger-btn.recover {
+  background: rgba(0,232,124,.1);
+  border: 1px solid rgba(0,232,124,.3);
+  color: var(--ok);
+}
+.fdev-trigger-btn.recover:hover {
+  background: rgba(0,232,124,.22);
+  border-color: var(--ok);
+}
+.fdev-fail-info {
+  font-family: var(--f-mono);
+  font-size: .68rem;
+  color: var(--alert);
+  letter-spacing: .04em;
+  display: none;
+  line-height: 1.5;
+}
+.fdev-card.is-failing .fdev-fail-info { display: block; }
+
+/* Legend */
+.fail-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--bg-inset);
+  border-top: 1px solid var(--bdr);
+  flex-wrap: wrap;
+}
+.fl-title { font-family: var(--f-mono); font-size:.68rem; color:var(--tx-lo); letter-spacing:.1em; flex-shrink:0; }
+.fl-chip {
+  font-family: var(--f-mono);
+  font-size: .65rem;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+}
+.fl-chip.offline { background: rgba(69,90,112,.15); color:#7090aa; border-color:rgba(69,90,112,.3); }
+.fl-chip.sensor  { background: rgba(255,100,50,.1); color:#ff8c42; border-color:rgba(255,100,50,.3); }
+.fl-chip.frozen  { background: rgba(0,200,255,.08); color:var(--cyan); border-color:rgba(0,200,255,.25); }
+.fl-chip.power   { background: rgba(255,167,38,.08); color:var(--warn); border-color:rgba(255,167,38,.25); }
+
+/* Failure log */
+.fail-log-wrap {
+  border-top: 1px solid rgba(255,61,61,.18);
+  background: rgba(0,0,0,.2);
+}
+.fail-log-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--bdr);
+}
+.fail-log-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.fail-log-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.03);
+  font-family: var(--f-mono);
+  font-size: .72rem;
+}
+.fail-log-entry:last-child { border-bottom: none; }
+.fl-time  { color: var(--tx-lo); flex-shrink: 0; white-space: nowrap; }
+.fl-badge {
+  padding: 1px 7px;
+  border-radius: 3px;
+  font-size: .63rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.fl-badge.fail    { background: var(--alert-bg); color: var(--alert); border: 1px solid var(--alert-bdr); }
+.fl-badge.recover { background: var(--ok-bg);    color: var(--ok);    border: 1px solid var(--ok-bdr); }
+.fl-msg   { color: var(--tx-mid); flex: 1; }
+.fl-msg strong { color: var(--tx-hi); }
+.fail-log-empty { padding: 30px 16px; text-align: center; color: var(--tx-lo); font-family: var(--f-mono); font-size: .74rem; }
+
+/* Toast notification */
+.fail-toast {
+  position: fixed;
+  bottom: 56px;
+  right: 24px;
+  min-width: 320px;
+  max-width: 420px;
+  background: #0b1526;
+  border: 1px solid rgba(255,61,61,.5);
+  border-radius: 8px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.6), 0 0 20px rgba(255,61,61,.15);
+  z-index: 9999;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  animation: toastIn .3s cubic-bezier(.22,1,.36,1) forwards;
+  font-family: var(--f-mono);
+}
+.fail-toast.toast-ok {
+  border-color: rgba(0,232,124,.4);
+  box-shadow: 0 8px 32px rgba(0,0,0,.6), 0 0 20px rgba(0,232,124,.1);
+}
+@keyframes toastIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes toastOut {
+  from { transform: translateX(0);    opacity: 1; }
+  to   { transform: translateX(110%); opacity: 0; }
+}
+.toast-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+.toast-title { font-size: .8rem; font-weight: 700; color: var(--alert); letter-spacing: .08em; margin-bottom: 4px; }
+.fail-toast.toast-ok .toast-title { color: var(--ok); }
+.toast-msg { font-size: .74rem; color: var(--tx-mid); line-height: 1.5; }
+.toast-close {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--tx-lo);
+  cursor: pointer;
+  font-size: .9rem;
+  padding: 0 4px;
+  line-height: 1;
+}
+.toast-close:hover { color: var(--tx-hi); }
+
+/* Dashboard failure banner (injected by cross-page listener) */
+.fail-banner {
+  position: fixed;
+  top: 56px;
+  left: 0; right: 0;
+  background: rgba(255,30,30,.12);
+  border-bottom: 2px solid rgba(255,61,61,.5);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 8888;
+  font-family: var(--f-mono);
+  font-size: .78rem;
+  backdrop-filter: blur(4px);
+  animation: bannerIn .3s ease forwards;
+}
+@keyframes bannerIn {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+.fail-banner-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--alert);
+  box-shadow: 0 0 8px var(--alert);
+  animation: alertPulse 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.fail-banner-label { color: var(--alert); font-weight: 700; letter-spacing: .1em; }
+.fail-banner-detail { color: var(--tx-mid); flex: 1; }
+.fail-banner-close {
+  background: none;
+  border: 1px solid rgba(255,61,61,.3);
+  color: var(--alert);
+  border-radius: 3px;
+  padding: 2px 9px;
+  font-size: .7rem;
+  cursor: pointer;
+  font-family: var(--f-mono);
+}
+.fail-banner-close:hover { background: rgba(255,61,61,.15); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="tb-logo">
+    <svg class="logo-svg" viewBox="0 0 38 38" fill="none">
+      <rect x="1.5" y="1.5" width="35" height="35" rx="3" stroke="#00c8ff" stroke-width="1.2"/>
+      <path d="M6 26 Q11 18 16 22 Q21 26 26 18 Q31 11 34 15" stroke="#00c8ff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <circle cx="9"  cy="21" r="2" fill="#00e87c"/>
+      <circle cx="19" cy="24" r="2" fill="#00c8ff"/>
+      <circle cx="28" cy="16" r="2" fill="#ffa726"/>
+      <path d="M14 12 L14 7 L24 7 L24 12" stroke="#00c8ff" stroke-width="1.2" fill="none"/>
+      <path d="M19 7 L19 4" stroke="#00c8ff" stroke-width="1.2"/>
+    </svg>
+    <div class="tb-logo-text">
+      <div class="logo-name">AQUAOS</div>
+      <div class="logo-sub">SMART AQUACULTURE CONTROL</div>
+    </div>
+  </a>
+
+  <nav class="tb-nav">
+    <a href="index.html">DASHBOARD</a>
+    <a href="history.html">HISTORY</a>
+    <a href="alert_log.html">ALERTS</a>
+    <a href="report.html">REPORT</a>
+    <a href="settings.html">SETTINGS</a>
+    <a href="simulator.html" class="active">SIMULATOR</a>
+    <a href="device_health.html">DEVICE HEALTH</a>
+  </nav>
+
+  <div class="tb-stats">
+    <div class="tb-stat">
+      <span class="tb-stat-label">MODE</span>
+      <span class="tb-stat-val" id="hdr-mode">IDLE</span>
+    </div>
+    <div class="tb-stat">
+      <span class="tb-stat-label">TOTAL TX</span>
+      <span class="tb-stat-val" id="hdr-tx">0</span>
+    </div>
+    <div class="tb-sync">
+      <div class="sync-dot" id="hdr-sync-dot"></div>
+      <div class="flex-col" style="align-items:flex-start;">
+        <span class="sync-label" id="hdr-sync-label">IDLE</span>
+        <span class="sync-time" id="sync-time">—</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">IoT Sensor Simulator</div>
+      <div class="page-subtitle">จำลอง ESP32 ทุกตู้พร้อมกัน → INSERT ลง DB จริง → Dashboard อัพเดต Live</div>
+    </div>
+    <div class="flex-col" style="align-items:flex-end;gap:6px;">
+      <div class="api-bar" style="margin-bottom:0;">
+        <span class="api-bar-label">API BASE:</span>
+        <input id="api-base-input" type="text" placeholder="http://localhost:8080/SmartAquacultureSystem" oninput="updateApiBase()">
+        <button class="btn-test" onclick="testConnection()">TEST</button>
+      </div>
+      <div id="api-status" class="text-muted text-xs">ยังไม่ได้ทดสอบ</div>
+    </div>
+  </div>
+
+  <!-- MASTER CONTROL -->
+  <div class="master-bar">
+    <span class="mbr-lbl">SEND MODE</span>
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-all-btn" onclick="setMode('all')">ALL TANKS (5 ตู้)</button>
+      <button class="mode-btn" id="mode-single-btn" onclick="setMode('single')">SINGLE TANK</button>
+    </div>
+    <div class="mbr-sep"></div>
+    <span class="mbr-lbl">INJECT SCENARIO</span>
+    <button class="btn btn-ok"    onclick="injectAll('normal')">✔ ปกติ</button>
+    <button class="btn btn-warn"  onclick="injectAll('hightemp')">▲ อุณหภูมิสูง</button>
+    <button class="btn btn-alert" onclick="injectAll('critical')">⚠ วิกฤต</button>
+    <button class="btn btn-ghost" onclick="injectAll('random')">⚄ สุ่มทั้งหมด</button>
+    <div class="mbr-sep"></div>
+    <span class="mbr-lbl">INTERVAL</span>
+    <input type="number" class="num-input" id="auto-interval" value="5" min="2" max="60">
+    <span class="mbr-lbl">วินาที</span>
+    <button class="run-btn" id="run-btn" onclick="toggleAuto()">▶ START AUTO</button>
+    <span class="auto-st idle" id="auto-status">IDLE</span>
+  </div>
+
+  <!-- TANK MINI CARDS -->
+  <div class="sim-tank-grid" id="tank-grid"></div>
+
+  <!-- ═══════════════════════════════════════════════
+       DEVICE FAILURE INJECTOR
+       ═══════════════════════════════════════════════ -->
+  <div class="section-head" style="margin-top:24px;">
+    <span class="section-title" style="color:var(--alert);letter-spacing:.14em;">⚠ DEVICE FAILURE INJECTOR</span>
+    <div class="section-line" style="background:linear-gradient(90deg,rgba(255,61,61,.5),transparent);"></div>
+    <span class="section-title" style="color:var(--alert);">DANGER ZONE</span>
+  </div>
+
+  <div class="fail-panel">
+    <div class="fail-intro">
+      <span class="fail-intro-icon">💀</span>
+      <div>
+        <div style="font-family:var(--f-mono);font-size:.82rem;color:var(--tx-hi);font-weight:700;letter-spacing:.08em;">สั่งให้อุปกรณ์พัง — แจ้งเตือนไปยัง Dashboard &amp; Device Health ทันที</div>
+        <div style="font-family:var(--f-mono);font-size:.72rem;color:var(--tx-lo);margin-top:3px;">ใช้ localStorage event bus → หน้าอื่นที่เปิดอยู่จะรับแจ้งเตือนแบบ Real-time</div>
+      </div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-family:var(--f-mono);font-size:.7rem;color:var(--tx-lo);">ACTIVE FAILURES:</span>
+        <span id="fail-active-count" style="font-family:var(--f-mono);font-size:1.1rem;font-weight:700;color:var(--alert);">0</span>
+        <button class="btn" style="background:rgba(255,100,50,.12);border:1px solid rgba(255,100,50,.35);color:#ff8c42;font-size:.68rem;padding:3px 10px;" onclick="bulkFail('temperature')">🌡 TEMP FAIL ALL</button>
+        <button class="btn" style="background:rgba(0,200,255,.08);border:1px solid rgba(0,200,255,.25);color:var(--cyan);font-size:.68rem;padding:3px 10px;" onclick="bulkFail('cctv')">📹 CCTV FAIL ALL</button>
+        <button class="btn" style="background:rgba(255,167,38,.1);border:1px solid rgba(255,167,38,.3);color:var(--warn);font-size:.68rem;padding:3px 10px;" onclick="bulkFail('pump')">⚙ PUMP FAIL ALL</button>
+        <button class="btn btn-ok" style="font-size:.68rem;padding:3px 10px;" onclick="recoverAll()">✔ RECOVER ALL</button>
+        <button class="btn btn-ghost" onclick="clearAllFailures()" style="font-size:.7rem;padding:3px 10px;border-color:rgba(255,61,61,.3);color:var(--alert);">CLEAR ALL</button>
+      </div>
+    </div>
+
+    <div class="fail-grid" id="fail-grid">
+      <!-- filled by JS -->
+    </div>
+
+    <!-- Device legend -->
+    <div class="fail-legend">
+      <span class="fl-title">SENSORS:</span>
+      <span class="fl-chip sensor">🌡 TEMP — ส่งค่า 99°C</span>
+      <span class="fl-chip sensor">⚗ pH — ส่งค่า 12</span>
+      <span class="fl-chip sensor">💧 TURBIDITY — ส่งค่า 999 NTU</span>
+      <span class="fl-chip sensor">📏 WATER LVL — ส่งค่า 0%</span>
+      <span class="fl-title" style="margin-left:8px;">ACTUATORS:</span>
+      <span class="fl-chip offline">⚙ PUMP</span>
+      <span class="fl-chip offline">🐟 FEEDER</span>
+      <span class="fl-chip offline">📹 CCTV</span>
+      <span class="fl-chip power" style="margin-left:8px;">⚠ Sensor faults → trigger alerts ทันที | Actuator faults → Device Health แจ้งเตือน</span>
+    </div>
+
+    <!-- Failure log -->
+    <div class="fail-log-wrap">
+      <div class="fail-log-head">
+        <span style="font-family:var(--f-mono);font-size:.78rem;font-weight:700;color:var(--alert);letter-spacing:.1em;">⚡ FAILURE EVENT LOG</span>
+        <span id="fail-log-count" style="font-family:var(--f-mono);font-size:.68rem;color:var(--tx-lo);">0 events</span>
+        <button class="btn btn-ghost" onclick="clearFailLog()" style="font-size:.68rem;padding:2px 8px;margin-left:auto;">CLEAR</button>
+      </div>
+      <div class="fail-log-list" id="fail-log-list">
+        <div class="fail-log-empty">ยังไม่มี failure event</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM -->
+  <div class="bottom-grid">
+    <!-- Manual single control -->
+    <div class="sim-panel">
+      <div class="phead">
+        <div><div class="ptitle">Manual Control</div><div class="psub">ปรับค่าและส่งทีละตู้</div></div>
+        <select id="sel-tank" onchange="onTankChange()" class="form-select" style="font-size:.8rem;padding:4px 8px;">
+          <option value="1">Tank 01 — ปลานิล</option>
+          <option value="2">Tank 02 — Dory</option>
+          <option value="3">Tank 03 — ปลาดุก</option>
+          <option value="4">Tank 04 — Clownfish</option>
+          <option value="5">Tank 05 — ปลาทับทิม</option>
+        </select>
+      </div>
+      <div class="pbody">
+        <div class="preset-grid">
+          <button class="btn btn-ok"    onclick="setPreset('normal')">✔ ค่าปกติ</button>
+          <button class="btn btn-warn"  onclick="setPreset('hightemp')">▲ อุณหภูมิสูง</button>
+          <button class="btn btn-alert" onclick="setPreset('critical')">⚠ วิกฤต</button>
+          <button class="btn btn-ghost" onclick="setPreset('random')">⚄ สุ่มค่า</button>
+        </div>
+        <div class="slider-block">
+          <div class="s-row ok" id="srow-temp"><div class="s-top"><span class="s-lbl">TEMPERATURE</span><span class="s-val ok" id="sval-temp">28.0 °C</span></div><input type="range" class="styled" id="sl-temp" min="15" max="45" step="0.1" value="28" oninput="onSlider()"><div class="s-hint"><span>15°C</span><span>45°C</span></div></div>
+          <div class="s-row ok" id="srow-ph"><div class="s-top"><span class="s-lbl">pH LEVEL</span><span class="s-val ok" id="sval-ph">7.20</span></div><input type="range" class="styled" id="sl-ph" min="4" max="10" step="0.01" value="7.2" oninput="onSlider()"><div class="s-hint"><span>pH 4</span><span>pH 10</span></div></div>
+          <div class="s-row ok" id="srow-turb"><div class="s-top"><span class="s-lbl">TURBIDITY</span><span class="s-val ok" id="sval-turb">30.0 NTU</span></div><input type="range" class="styled" id="sl-turb" min="0" max="150" step="0.5" value="30" oninput="onSlider()"><div class="s-hint"><span>0 NTU</span><span>150 NTU</span></div></div>
+          <div class="s-row ok" id="srow-water"><div class="s-top"><span class="s-lbl">WATER LEVEL</span><span class="s-val ok" id="sval-water">80 %</span></div><input type="range" class="styled" id="sl-water" min="0" max="100" step="1" value="80" oninput="onSlider()"><div class="s-hint"><span>0%</span><span>100%</span></div></div>
+        </div>
+        <button class="send-btn" id="send-btn" onclick="sendManual()">▶ ส่งค่านี้ไป API</button>
+        <pre class="response-pre" id="response-pre"></pre>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="sim-panel">
+      <div class="phead">
+        <div><div class="ptitle">Transmission Log</div><div class="psub">ประวัติการส่งทั้งหมด</div></div>
+        <div class="flex gap-2 flex-center">
+          <span id="log-count" class="text-muted text-xs">0 TX</span>
+          <button class="btn btn-ghost" onclick="clearLog()" style="padding:3px 10px;font-size:.74rem;">CLEAR</button>
+        </div>
+      </div>
+      <div class="log-list" id="log-list">
+        <div class="log-empty">ยังไม่มีประวัติ — กด START AUTO หรือส่ง Manual</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="statusbar">
+  <div class="sb-item"><div class="sb-dot" id="sb-dot"></div><span id="sb-conn">SYSTEM ONLINE</span></div>
+  <div class="sb-item" id="sb-page-info"></div>
+  <div class="sb-item">VER 2.2.0</div>
+  <div class="sb-right" id="sb-time">—</div>
+</footer>
+
+<script>
+function getApiBase(){return(localStorage.getItem('aquaos_api_base')||'../api').replace(/\/insert_sensor\.php$/,'');}
+function getInsertUrl(){return getApiBase()+'/insert_sensor.php';}
+
+const TANKS=[{id:1,name:'ปลานิล A1',target:28,min:24,max:32,ph:8.5,turb:50},{id:2,name:'Dory B2',target:27,min:23,max:30,ph:8.0,turb:40},{id:3,name:'ปลาดุก C1',target:29,min:24,max:34,ph:8.5,turb:60},{id:4,name:'Clownfish D3',target:26,min:22,max:30,ph:8.0,turb:35},{id:5,name:'ปลาทับทิม E2',target:27.5,min:23,max:31,ph:8.3,turb:45}];
+const STATE=TANKS.map(t=>({tank_id:t.id,temperature:t.target+(Math.random()-.5)*2,ph_level:7.1+Math.random()*.4,turbidity:20+Math.random()*15,water_level:78+Math.random()*10,_tTemp:t.target,_anomaly:0}));
+let autoTimer=null,txTotal=0,simMode='all',logCount=0;
+
+setInterval(()=>{const t=new Date().toLocaleTimeString('th-TH',{hour12:false});const a=document.getElementById('sb-time');if(a)a.textContent=t;const b=document.getElementById('hdr-time');if(b)b.textContent=t;},1000);
+
+function setMode(m){simMode=m;document.getElementById('mode-all-btn').classList.toggle('active',m==='all');document.getElementById('mode-single-btn').classList.toggle('active',m==='single');document.getElementById('hdr-mode').textContent=m==='all'?'ALL TANKS':'SINGLE';}
+
+const SCENARIOS={normal:()=>({temp:27.5,ph:7.20,turb:25,water:82}),hightemp:()=>({temp:35.5,ph:7.30,turb:30,water:75}),critical:()=>({temp:38.5,ph:9.20,turb:85,water:18}),random:()=>({temp:+(Math.random()*22+20).toFixed(1),ph:+(Math.random()*4+6).toFixed(2),turb:+(Math.random()*90+5).toFixed(1),water:+(Math.random()*60+30).toFixed(0)})};
+
+function injectAll(scenario){TANKS.forEach((_,i)=>{const s=SCENARIOS[scenario]();STATE[i].temperature=+(s.temp+(Math.random()-.5)*1.5).toFixed(1);STATE[i].ph_level=+(s.ph+(Math.random()-.5)*.1).toFixed(2);STATE[i].turbidity=+(s.turb+(Math.random()-.5)*5).toFixed(1);STATE[i].water_level=+(s.water+(Math.random()-.5)*3).toFixed(0);STATE[i]._anomaly=6;});refreshCards();if(!autoTimer)sendAll();}
+function drift(v,target,noise,min,max){v+=(target-v)*.08+(Math.random()-.5)*noise;return Math.max(min,Math.min(max,v));}
+function tickDrift(){TANKS.forEach((t,i)=>{const s=STATE[i];if(s._anomaly>0){s._anomaly--;}else if(Math.random()<.033){s._tTemp=Math.random()<.5?t.max+4:t.min-3;s._anomaly=3;}else{s._tTemp=t.target;}s.temperature=+drift(s.temperature,s._tTemp,.25,15,45).toFixed(1);s.ph_level=+drift(s.ph_level,7.2,.04,5,10).toFixed(2);s.turbidity=+drift(s.turbidity,25,1.2,0,150).toFixed(1);s.water_level=+drift(s.water_level,82,.4,10,100).toFixed(0);});}
+function evalSt(s,t){if(s.temperature>t.max||s.temperature<t.min||s.ph_level>t.ph||s.water_level<30)return'alert';if(s.turbidity>t.turb||s.temperature>t.max-2||s.water_level<50)return'warn';return'ok';}
+
+function buildCards(){document.getElementById('tank-grid').innerHTML=TANKS.map(t=>`<div class="tc" id="tc-${t.id}"><div class="tc-head"><div><div class="tc-id">TANK-0${t.id}</div><div class="tc-nm">${t.name}</div></div><span class="tc-badge ok" id="tcb-${t.id}">OK</span></div><div class="tc-metrics"><div class="tc-row"><span class="tc-lbl">TEMP</span><span class="tc-val" id="tcv-temp-${t.id}">—</span></div><div class="tc-row"><span class="tc-lbl">pH</span><span class="tc-val" id="tcv-ph-${t.id}">—</span></div><div class="tc-row"><span class="tc-lbl">TURB</span><span class="tc-val" id="tcv-turb-${t.id}">—</span></div><div class="tc-row"><span class="tc-lbl">WATER</span><span class="tc-val" id="tcv-water-${t.id}">—</span></div></div><div class="tc-foot"><span id="tc-ts-${t.id}">—</span><div class="tcdot" id="tcdot-${t.id}"></div></div></div>`).join('');}
+
+function refreshCards(){TANKS.forEach((t,i)=>{const s=STATE[i],st=evalSt(s,t);const card=document.getElementById(`tc-${t.id}`),badg=document.getElementById(`tcb-${t.id}`);if(card)card.className=`tc st-${st}`;if(badg){badg.className=`tc-badge ${st}`;badg.textContent=st.toUpperCase();}const tst=s.temperature>t.max||s.temperature<t.min?'alert':s.temperature>t.max-2?'warn':'ok';const pst=s.ph_level>t.ph?'alert':s.ph_level<6?'warn':'ok';const ust=s.turbidity>t.turb?'alert':s.turbidity>t.turb*.8?'warn':'ok';const wst=s.water_level<30?'alert':s.water_level<50?'warn':'ok';const sv=(id,val,c)=>{const e=document.getElementById(id);if(e){e.textContent=val;e.className=`tc-val ${c}`;}};const f2=v=>parseFloat(Number(v).toFixed(2));sv(`tcv-temp-${t.id}`,`${f2(s.temperature)}°C`,tst);sv(`tcv-ph-${t.id}`,`${f2(s.ph_level)}`,pst);sv(`tcv-turb-${t.id}`,`${f2(s.turbidity)} NTU`,ust);sv(`tcv-water-${t.id}`,`${f2(s.water_level)}%`,wst);});}
+
+async function postSensor(payload){const r=await fetch(getInsertUrl(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});return r.json();}
+
+async function sendAll(){tickDrift();refreshCards();const hdrDot=document.getElementById('hdr-sync-dot');if(hdrDot)hdrDot.className='sync-dot tx';let anyApiOk=false;
+  await Promise.allSettled(TANKS.map(async(t,i)=>{const s=STATE[i];const payload={tank_id:s.tank_id,temperature:s.temperature,ph_level:s.ph_level,turbidity:s.turbidity,water_level:s.water_level};const dot=document.getElementById(`tcdot-${t.id}`),ts=document.getElementById(`tc-ts-${t.id}`),st=evalSt(s,t);
+    try{const json=await postSensor(payload);anyApiOk=true;const badge=json.alerts_count>0?(st==='alert'?'alert':'warn'):'ok';const extra=json.alerts_count>0?` [${json.alerts_count} alerts]`:'';addLog(badge,`TANK-0${t.id}`,`T:${Number(s.temperature).toFixed(2)}°C  pH:${Number(s.ph_level).toFixed(2)}  Turb:${Number(s.turbidity).toFixed(2)}  H₂O:${Number(s.water_level).toFixed(2)}%${extra}`);if(dot){dot.className=`tcdot ${st==='alert'?'alert':'pulse'}`;setTimeout(()=>{if(dot)dot.className='tcdot';},700);}if(ts)ts.textContent=new Date().toLocaleTimeString('th-TH',{hour12:false});}
+    catch{addLog('sim',`TANK-0${t.id}`,`[SIM] T:${Number(s.temperature).toFixed(2)}°C  pH:${Number(s.ph_level).toFixed(2)}  Turb:${Number(s.turbidity).toFixed(2)}  H₂O:${Number(s.water_level).toFixed(2)}%`);if(dot){dot.className='tcdot pulse';setTimeout(()=>{if(dot)dot.className='tcdot';},500);}if(ts)ts.textContent=new Date().toLocaleTimeString('th-TH',{hour12:false});}}));
+  txTotal+=TANKS.length;const hdrTx=document.getElementById('hdr-tx');if(hdrTx)hdrTx.textContent=txTotal;if(hdrDot)hdrDot.className='sync-dot';
+  const lbl=document.getElementById('hdr-sync-label'),sbConn=document.getElementById('sb-conn'),sbDot=document.getElementById('sb-dot'),apiSt=document.getElementById('api-status');
+  if(anyApiOk){if(lbl)lbl.textContent='TX OK';if(sbConn)sbConn.textContent='API CONNECTED';if(sbDot)sbDot.style.background='var(--ok)';if(apiSt){apiSt.textContent=`✓ Last TX: ${new Date().toLocaleTimeString('th-TH',{hour12:false})}`;apiSt.style.color='var(--ok)';}}else{if(lbl)lbl.textContent='SIMULATED';if(sbConn)sbConn.textContent='SIMULATION MODE';if(sbDot)sbDot.style.background='var(--cyan)';if(apiSt){apiSt.textContent='⚡ Offline — simulation only';apiSt.style.color='var(--cyan)';}}}
+
+function toggleAuto(){const btn=document.getElementById('run-btn'),st=document.getElementById('auto-status');if(autoTimer){clearInterval(autoTimer);autoTimer=null;btn.textContent='▶ START AUTO';btn.classList.remove('running');st.textContent='IDLE';st.className='auto-st idle';document.getElementById('hdr-mode').textContent=simMode==='all'?'ALL TANKS':'SINGLE';}else{const sec=parseInt(document.getElementById('auto-interval').value)||5;if(simMode==='all')sendAll();else sendManual();autoTimer=setInterval(()=>{if(simMode==='all')sendAll();else sendManual();},sec*1000);btn.textContent='■ STOP AUTO';btn.classList.add('running');st.textContent=`RUNNING ${sec}s`;st.className='auto-st active';document.getElementById('hdr-mode').textContent='AUTO';}}
+
+async function sendManual(){const tid=parseInt(document.getElementById('sel-tank').value);const payload={tank_id:tid,temperature:parseFloat(document.getElementById('sl-temp').value),ph_level:parseFloat(document.getElementById('sl-ph').value),turbidity:parseFloat(document.getElementById('sl-turb').value),water_level:parseFloat(document.getElementById('sl-water').value)};const i=tid-1;STATE[i].temperature=payload.temperature;STATE[i].ph_level=payload.ph_level;STATE[i].turbidity=payload.turbidity;STATE[i].water_level=payload.water_level;refreshCards();const btn=document.getElementById('send-btn');btn.classList.add('busy');btn.textContent='↺ กำลังส่ง...';
+  try{const json=await postSensor(payload);const pre=document.getElementById('response-pre');if(pre){pre.textContent=JSON.stringify(json,null,2);pre.style.display='block';}addLog(json.alerts_count>0?'warn':'ok',`TANK-0${tid}`,`MANUAL  T:${payload.temperature}°C  pH:${payload.ph_level}  Turb:${payload.turbidity}  H₂O:${payload.water_level}%`);txTotal++;const hdrTx=document.getElementById('hdr-tx');if(hdrTx)hdrTx.textContent=txTotal;document.getElementById('sb-conn').textContent='API CONNECTED';document.getElementById('sb-dot').style.background='var(--ok)';}
+  catch{const pre=document.getElementById('response-pre');if(pre){pre.textContent='// API offline — simulation mode';pre.style.display='block';}addLog('sim',`TANK-0${tid}`,`[SIM] MANUAL  T:${payload.temperature}°C  pH:${payload.ph_level}  Turb:${payload.turbidity}`);document.getElementById('sb-conn').textContent='SIMULATION MODE';document.getElementById('sb-dot').style.background='var(--cyan)';}
+  btn.classList.remove('busy');btn.textContent='▶ ส่งค่านี้ไป API';}
+
+function onSlider(){const tid=parseInt(document.getElementById('sel-tank').value),t=TANKS[tid-1];const temp=parseFloat(document.getElementById('sl-temp').value),ph=parseFloat(document.getElementById('sl-ph').value),turb=parseFloat(document.getElementById('sl-turb').value),water=parseFloat(document.getElementById('sl-water').value);
+  document.getElementById('sval-temp').textContent=temp.toFixed(1)+' °C';document.getElementById('sval-ph').textContent=ph.toFixed(2);document.getElementById('sval-turb').textContent=turb.toFixed(1)+' NTU';document.getElementById('sval-water').textContent=water.toFixed(0)+' %';
+  const ac=(valId,rowId,cls)=>{document.getElementById(valId).className=`s-val ${cls}`;document.getElementById(rowId).className=`s-row ${cls}`;};
+  ac('sval-temp','srow-temp',temp>t.max||temp<t.min?'alert':temp>t.max-2?'warn':'ok');ac('sval-ph','srow-ph',ph>t.ph?'alert':ph<6?'warn':'ok');ac('sval-turb','srow-turb',turb>t.turb?'alert':turb>t.turb*.8?'warn':'ok');ac('sval-water','srow-water',water<30?'alert':water<50?'warn':'ok');}
+
+function onTankChange(){const tid=parseInt(document.getElementById('sel-tank').value),s=STATE[tid-1];document.getElementById('sl-temp').value=s.temperature;document.getElementById('sl-ph').value=s.ph_level;document.getElementById('sl-turb').value=s.turbidity;document.getElementById('sl-water').value=s.water_level;onSlider();}
+function setPreset(key){const p=SCENARIOS[key]();document.getElementById('sl-temp').value=+(p.temp+(Math.random()-.5)*.8).toFixed(1);document.getElementById('sl-ph').value=+(p.ph+(Math.random()-.5)*.05).toFixed(2);document.getElementById('sl-turb').value=+(p.turb+(Math.random()-.5)*3).toFixed(1);document.getElementById('sl-water').value=+(p.water+(Math.random()-.5)*2).toFixed(0);onSlider();}
+
+function addLog(badge,tank,msg){const list=document.getElementById('log-list');const empty=list.querySelector('.log-empty');if(empty)empty.remove();logCount++;document.getElementById('log-count').textContent=`${logCount} TX`;const t=new Date().toLocaleTimeString('th-TH',{hour12:false});const d=document.createElement('div');d.className='log-entry';d.innerHTML=`<span class="log-time">${t}</span><span class="log-badge ${badge}">${badge.toUpperCase()}</span><span class="log-msg"><span style="color:var(--tx-hi)">${tank}</span>  ${msg}</span>`;list.insertBefore(d,list.firstChild);while(list.children.length>120)list.removeChild(list.lastChild);}
+function clearLog(){document.getElementById('log-list').innerHTML='<div class="log-empty">ล้างแล้ว</div>';logCount=0;document.getElementById('log-count').textContent='0 TX';}
+function updateApiBase(){const val=document.getElementById('api-base-input').value.trim().replace(/\/$/,'');if(val)localStorage.setItem('aquaos_api_base',val);else localStorage.removeItem('aquaos_api_base');}
+async function testConnection(){const apiSt=document.getElementById('api-status');apiSt.textContent='⟳ กำลังทดสอบ...';apiSt.style.color='var(--cyan)';try{const base=document.getElementById('api-base-input').value.trim().replace(/\/$/,'')||'../api';const res=await fetch(base+'/get_latest.php',{cache:'no-store'});const json=await res.json();if(json.success){apiSt.textContent=`✓ เชื่อมต่อสำเร็จ — พบ ${json.count} ตู้`;apiSt.style.color='var(--ok)';document.getElementById('sb-conn').textContent='API CONNECTED';document.getElementById('sb-dot').style.background='var(--ok)';}else throw new Error(json.message);}catch(e){apiSt.textContent=`✕ เชื่อมต่อไม่ได้: ${e.message||'connection failed'}`;apiSt.style.color='var(--alert)';}}
+
+/* ═══════════════════════════════════════════════════════
+   DEVICE FAILURE INJECTOR v2 — per-device, cross-page via localStorage
+   ═══════════════════════════════════════════════════════ */
+const DEVICE_FAILURE_KEY = 'aquaos_device_failures_v2';
+
+// 7 devices: 4 sensors + 3 actuators
+const ALL_DEVICES = [
+  { id:'temperature', label:'TEMP SENSOR', icon:'🌡', type:'sensor',   failVal:99,  stateKey:'temperature' },
+  { id:'ph',          label:'pH SENSOR',   icon:'⚗',  type:'sensor',   failVal:12,  stateKey:'ph_level'    },
+  { id:'turbidity',   label:'TURBIDITY',   icon:'💧', type:'sensor',   failVal:999, stateKey:'turbidity'   },
+  { id:'water_level', label:'WATER LVL',   icon:'📏', type:'sensor',   failVal:0,   stateKey:'water_level' },
+  { id:'pump',        label:'PUMP',        icon:'⚙',  type:'actuator' },
+  { id:'feeder',      label:'FEEDER',      icon:'🐟', type:'actuator' },
+  { id:'cctv',        label:'CCTV',        icon:'📹', type:'actuator' },
+];
+const SENSOR_DEVICES   = ALL_DEVICES.filter(d => d.type === 'sensor');
+const ACTUATOR_DEVICES = ALL_DEVICES.filter(d => d.type === 'actuator');
+
+// State: { "tankId_deviceId": { tankId, deviceId, startTime } }
+let DEVICE_FAILURES = {};
+let failLogCount = 0;
+
+function dfKey(tankId, deviceId) { return `${tankId}_${deviceId}`; }
+
+function loadFailures() {
+  try {
+    const raw = localStorage.getItem(DEVICE_FAILURE_KEY);
+    if (raw) DEVICE_FAILURES = JSON.parse(raw);
+  } catch { DEVICE_FAILURES = {}; }
+}
+
+function saveFailures() {
+  localStorage.setItem(DEVICE_FAILURE_KEY, JSON.stringify(DEVICE_FAILURES));
+}
+
+function getFailureCount() { return Object.keys(DEVICE_FAILURES).length; }
+
+function updateFailActiveCount() {
+  const el = document.getElementById('fail-active-count');
+  if (el) el.textContent = getFailureCount();
+}
+
+/* Build the per-device failure card grid */
+function buildFailGrid() {
+  const grid = document.getElementById('fail-grid');
+  if (!grid) return;
+
+  grid.innerHTML = TANKS.map(t => {
+    const failingDevices = ALL_DEVICES.filter(d => DEVICE_FAILURES[dfKey(t.id, d.id)]);
+    const isFailing = failingDevices.length > 0;
+
+    const makeRow = (dev) => {
+      const key     = dfKey(t.id, dev.id);
+      const failing = !!DEVICE_FAILURES[key];
+      return `
+        <div class="fdev-row${failing ? ' row-failing' : ''}" id="frow-${t.id}-${dev.id}">
+          <span class="fdev-row-icon">${dev.icon}</span>
+          <span class="fdev-row-name">${dev.label}</span>
+          <span class="fdev-row-status ${failing ? 'rst-fail' : 'rst-ok'}">${failing ? 'FAULT' : 'OK'}</span>
+          <button class="fdev-row-btn ${failing ? 'rbtn-recover' : 'rbtn-fail'}"
+            onclick="toggleDevice(${t.id},'${dev.id}')">
+            ${failing ? '✓ FIX' : '💀 BREAK'}
+          </button>
+        </div>`;
+    };
+
+    return `
+      <div class="fdev-card${isFailing ? ' is-failing' : ''}" id="fcard-${t.id}">
+        <div class="fdev-head">
+          <div>
+            <div class="fdev-id">ESP32-NODE-${String(t.id).padStart(2,'0')}</div>
+            <div class="fdev-name">${t.name}</div>
+          </div>
+          <span class="fdev-status ${isFailing ? 'st-failing' : 'st-ok'}" id="fst-${t.id}">
+            ${isFailing ? `${failingDevices.length} FAULT${failingDevices.length > 1 ? 'S' : ''}` : 'ONLINE'}
+          </span>
+        </div>
+        <div class="fdev-section-title">── SENSORS ──</div>
+        <div class="fdev-rows">${SENSOR_DEVICES.map(makeRow).join('')}</div>
+        <div class="fdev-section-title" style="margin-top:6px;">── ACTUATORS ──</div>
+        <div class="fdev-rows">${ACTUATOR_DEVICES.map(makeRow).join('')}</div>
+      </div>`;
+  }).join('');
+}
+
+/* Toggle a single device failure on/off */
+async function toggleDevice(tankId, deviceId) {
+  const key     = dfKey(tankId, deviceId);
+  const tank    = TANKS.find(t => t.id === tankId);
+  const dev     = ALL_DEVICES.find(d => d.id === deviceId);
+  if (!tank || !dev) return;
+
+  const isFailing = !!DEVICE_FAILURES[key];
+  const apiBase   = getApiBase();
+
+  try {
+    const res = await fetch(apiBase + '/simulate_device_error.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tank_id:      tankId,
+        device_name:  deviceId,
+        error_detail: isFailing ? '' : `Simulated failure: ${dev.label}`,
+        is_resolved:  isFailing,
+      }),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+  } catch (err) {
+    addFailLog(isFailing ? 'recover' : 'fail', tank.name, `⚠ Backend: ${err.message} — localStorage เท่านั้น`);
+  }
+
+  if (isFailing) {
+    delete DEVICE_FAILURES[key];
+    addFailLog('recover', tank.name, `${dev.icon} ${dev.label} — RECOVERED`);
+    showFailToast(true, `✓ ${tank.name} — ${dev.label} RECOVERED`, 'อุปกรณ์กลับสู่การทำงานปกติแล้ว');
+  } else {
+    DEVICE_FAILURES[key] = { tankId, deviceId, startTime: Date.now() };
+    addFailLog('fail', tank.name, `${dev.icon} ${dev.label} — FAULT INJECTED`);
+    showFailToast(false, `${dev.icon} ${tank.name} — ${dev.label} FAULT`, 'อุปกรณ์จะแสดงสถานะผิดปกติ → Device Health จะแจ้งเตือน');
+  }
+
+  saveFailures();
+  updateFailActiveCount();
+  buildFailGrid();
+}
+
+/* Fail one device type across ALL tanks */
+async function bulkFail(deviceId) {
+  const dev = ALL_DEVICES.find(d => d.id === deviceId);
+  if (!dev) return;
+  if (!confirm(`จำลองให้ ${dev.label} ของทุกตู้พัง?`)) return;
+  const apiBase = getApiBase();
+  for (const tank of TANKS) {
+    const key = dfKey(tank.id, deviceId);
+    DEVICE_FAILURES[key] = { tankId: tank.id, deviceId, startTime: Date.now() };
+    await fetch(apiBase + '/simulate_device_error.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tank_id: tank.id, device_name: deviceId, error_detail: `Bulk fail: ${dev.label}`, is_resolved: false }),
+    }).catch(() => {});
+  }
+  saveFailures();
+  updateFailActiveCount();
+  buildFailGrid();
+  addFailLog('fail', 'ALL TANKS', `${dev.icon} ${dev.label} — BULK FAULT INJECTED (${TANKS.length} tanks)`);
+  showFailToast(false, `${dev.icon} ${dev.label} FAIL ALL`, `${dev.label} ทุกตู้พังแล้ว — ตรวจสอบที่ Device Health`);
+}
+
+/* Recover EVERYTHING */
+async function recoverAll(silent = false) {
+  if (!silent && !confirm('กู้คืนอุปกรณ์ทุกตัวของทุกตู้?')) return;
+  const apiBase = getApiBase();
+  for (const tank of TANKS) {
+    for (const dev of ALL_DEVICES) {
+      await fetch(apiBase + '/simulate_device_error.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tank_id: tank.id, device_name: dev.id, is_resolved: true }),
+      }).catch(() => {});
+    }
+  }
+  DEVICE_FAILURES = {};
+  saveFailures();
+  updateFailActiveCount();
+  addFailLog('recover', 'ALL DEVICES', '✓ RECOVER ALL — อุปกรณ์ทุกตัวกลับสู่ปกติ');
+  buildFailGrid();
+  showFailToast(true, '✔ RECOVER ALL', 'อุปกรณ์ทุกตัวกลับปกติแล้ว');
+}
+
+async function clearAllFailures() {
+  if (!Object.keys(DEVICE_FAILURES).length) return;
+  if (!confirm('ล้าง failure ทั้งหมด และให้อุปกรณ์ทุกตัวกลับปกติ?')) return;
+  await recoverAll(true);
+}
+
+/* ── Override sendAll: apply per-sensor fault values ── */
+const _origSendAll = sendAll;
+sendAll = async function() {
+  TANKS.forEach((t, i) => {
+    const s = STATE[i];
+    // If ALL 4 sensors are broken → simulate device fully offline (no data)
+    const allSensorsFailing = SENSOR_DEVICES.every(d => !!DEVICE_FAILURES[dfKey(t.id, d.id)]);
+    if (allSensorsFailing) { s._offline = true; return; }
+    // Apply extreme values per broken sensor
+    SENSOR_DEVICES.forEach(dev => {
+      if (DEVICE_FAILURES[dfKey(t.id, dev.id)]) {
+        s[dev.stateKey] = dev.failVal;
+        s._anomaly = 99;
+      }
+    });
+  });
+
+  await _origSendAll();
+
+  TANKS.forEach((t, i) => { STATE[i]._offline = false; });
+};
+
+/* Override postSensor: block fully-offline devices */
+const _origPost = postSensor;
+postSensor = async function(payload) {
+  const allSensorsFailing = SENSOR_DEVICES.every(d => !!DEVICE_FAILURES[dfKey(payload.tank_id, d.id)]);
+  if (allSensorsFailing) throw new Error('DEVICE OFFLINE — all sensors failed');
+  return _origPost(payload);
+};
+
+/* Failure log */
+function addFailLog(badge, tank, msg) {
+  const list = document.getElementById('fail-log-list');
+  const empty = list.querySelector('.fail-log-empty');
+  if (empty) empty.remove();
+  failLogCount++;
+  const cntEl = document.getElementById('fail-log-count');
+  if (cntEl) cntEl.textContent = `${failLogCount} events`;
+  const t = new Date().toLocaleTimeString('th-TH', { hour12: false });
+  const d = document.createElement('div');
+  d.className = 'fail-log-entry';
+  d.innerHTML = `<span class="fl-time">${t}</span><span class="fl-badge ${badge}">${badge.toUpperCase()}</span><span class="fl-msg"><strong>${tank}</strong> — ${msg}</span>`;
+  list.insertBefore(d, list.firstChild);
+  while (list.children.length > 80) list.removeChild(list.lastChild);
+}
+
+function clearFailLog() {
+  document.getElementById('fail-log-list').innerHTML = '<div class="fail-log-empty">ล้างแล้ว</div>';
+  failLogCount = 0;
+  const el = document.getElementById('fail-log-count');
+  if (el) el.textContent = '0 events';
+}
+
+/* Toast */
+let _toastTimer = null;
+function showFailToast(isOk, title, msg) {
+  document.querySelectorAll('.fail-toast').forEach(el => el.remove());
+  if (_toastTimer) clearTimeout(_toastTimer);
+  const toast = document.createElement('div');
+  toast.className = `fail-toast${isOk ? ' toast-ok' : ''}`;
+  toast.innerHTML = `
+    <div class="toast-icon">${isOk ? '✅' : '🔴'}</div>
+    <div style="flex:1">
+      <div class="toast-title">${title}</div>
+      <div class="toast-msg">${msg.replace(/\n/g,'<br>')}</div>
+    </div>
+    <button class="toast-close" onclick="this.parentElement.remove()">✕</button>
+  `;
+  document.body.appendChild(toast);
+  _toastTimer = setTimeout(() => {
+    toast.style.animation = 'toastOut .3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 5000);
+}
+
+/* Init */
+(function initFailures() { loadFailures(); })();
+
+const _origBuildCards = buildCards;
+buildCards = function() {
+  _origBuildCards();
+  loadFailures();
+  buildFailGrid();
+  updateFailActiveCount();
+};
+
+window.addEventListener('load', () => {
+  buildFailGrid();
+  updateFailActiveCount();
+});
+</script>
+</body>
+</html>

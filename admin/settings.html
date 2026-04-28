@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaOS — Settings</title>
+<link rel="stylesheet" href="../static/style.css">
+<style>
+/* ── SETTINGS PAGE UX IMPROVEMENTS ── */
+
+/* Larger modal for edit tank */
+.modal-lg {
+  width: 580px;
+  max-width: 96vw;
+}
+
+/* Bigger, clearer field labels */
+.field-label-lg {
+  display: block;
+  font-family: var(--f-ui);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tx-mid);
+  letter-spacing: 0.04em;
+  margin-bottom: 8px;
+}
+
+/* Bigger input fields */
+.field-input-lg {
+  width: 100%;
+  height: 48px !important;
+  font-size: 0.95rem !important;
+  padding: 0 16px !important;
+  background: var(--bg-inset);
+  border: 1px solid var(--bdr-bright);
+  color: var(--tx-bright);
+  border-radius: 6px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  outline: none;
+}
+.field-input-lg:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(0,200,255,0.1);
+}
+.field-input-lg.invalid {
+  border-color: var(--alert);
+  box-shadow: 0 0 0 3px rgba(255,61,61,0.1);
+}
+.field-input-lg::placeholder { color: var(--tx-lo); font-size:0.85rem; }
+
+/* Settings cards: bigger field labels + inputs */
+.settings-grid .field-label,
+.form-col .field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tx-mid);
+  margin-bottom: 6px;
+}
+.settings-grid .field-input,
+.form-col .field-input {
+  height: 44px;
+  font-size: 0.9rem;
+  padding: 0 14px;
+}
+.settings-grid .field-select,
+.form-col .field-select {
+  height: 44px;
+  font-size: 0.9rem;
+  padding: 0 14px;
+}
+.settings-grid .field-hint {
+  font-size: 0.72rem;
+  margin-top: 4px;
+}
+
+/* Card title bigger */
+.card-title { font-size: 1rem !important; font-weight: 700; }
+.card-sub   { font-size: 0.72rem !important; }
+
+/* Toggle text bigger */
+.toggle-name { font-size: 0.88rem !important; font-weight: 600; }
+.toggle-desc { font-size: 0.76rem !important; }
+
+/* Tab buttons bigger */
+.tank-tab {
+  font-size: 0.82rem !important;
+  padding: 10px 18px !important;
+}
+
+/* Page title area improvements */
+.page-title { font-size: 1.7rem; }
+
+/* Modal footer flex alignment */
+.modal-footer { display: flex; align-items: center; }
+
+/* Meal items bigger */
+.meal-item { padding: 10px 14px !important; }
+.meal-num  { font-size: 0.8rem !important; }
+.meal-time, .meal-amount { height: 36px !important; font-size: 0.85rem !important; }
+
+/* Card body spacing */
+.card-body { padding: 20px !important; }
+.card-head { padding: 16px 20px !important; }
+
+/* Sensor gauge label bigger */
+.gauge-label { font-size: 0.8rem !important; letter-spacing: 0.1em; }
+.gauge-val   { font-size: 1rem !important; }
+
+/* Settings summary right panel labels */
+.cur-label { font-size: 0.8rem !important; }
+.cur-val   { font-size: 0.88rem !important; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ TOPBAR ══════════════════ -->
+<header class="topbar">
+  <a href="index.html" class="tb-logo">
+    <svg class="logo-svg" viewBox="0 0 38 38" fill="none">
+      <rect x="1.5" y="1.5" width="35" height="35" rx="3" stroke="#00c8ff" stroke-width="1.2"/>
+      <path d="M6 26 Q11 18 16 22 Q21 26 26 18 Q31 11 34 15" stroke="#00c8ff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <circle cx="9"  cy="21" r="2" fill="#00e87c"/>
+      <circle cx="19" cy="24" r="2" fill="#00c8ff"/>
+      <circle cx="28" cy="16" r="2" fill="#ffa726"/>
+    </svg>
+    <div class="tb-logo-text">
+      <div class="logo-name">AQUAOS</div>
+      <div class="logo-sub">SMART AQUACULTURE CONTROL</div>
+    </div>
+  </a>
+
+  <nav class="tb-nav">
+    <a href="index.html">DASHBOARD</a>
+    <a href="history.html">HISTORY</a>
+    <a href="alert_log.html">ALERTS</a>
+    <a href="report.html">REPORT</a>
+    <a href="settings.html" class="active">SETTINGS</a>
+    <a href="simulator.html">SIMULATOR</a>
+    <a href="device_health.html">DEVICE HEALTH</a>
+  </nav>
+
+  <div class="tb-stats">
+    <div class="tb-stat"><span class="tb-stat-label">API</span><span class="tb-stat-val" id="hdr-api">—</span></div>
+    <div class="tb-stat"><span class="tb-stat-label">TANKS</span><span class="tb-stat-val" id="hdr-tanks">—</span></div>
+    <div class="tb-sync">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span class="sync-label" id="sync-label">LIVE</span>
+    </div>
+  </div>
+</header>
+
+<!-- ══════════════════ MAIN ══════════════════ -->
+<main class="main">
+
+  <!-- API Bar -->
+  <div class="api-bar">
+    <span class="api-bar-label">API BASE:</span>
+    <input id="api-base-input" type="text"
+      placeholder="http://localhost:8080/SmartAquacultureSystem/api  (เว้นว่าง = ../api)"
+      oninput="onApiBaseChange()">
+    <button class="btn-test" onclick="reloadFromApi()">↺ RELOAD</button>
+    <span id="api-load-result"></span>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">ตั้งค่าระบบ — <span id="hdr-tank">—</span></div>
+      <div class="page-subtitle">TANK MANAGEMENT · THRESHOLDS · FEEDING SCHEDULE</div>
+    </div>
+    <button class="btn btn-save" id="btn-save-main" onclick="saveSettings()">✔ SAVE SETTINGS</button>
+  </div>
+
+  <!-- Tank Tabs -->
+  <div class="panel-label">TANK SELECTOR</div>
+  <div class="tank-tabs-wrap" id="tank-tabs"></div>
+
+  <!-- 2-column layout -->
+  <div class="settings-grid">
+
+    <!-- ── LEFT COLUMN ── -->
+    <div class="form-col">
+
+      <!-- Card: Tank Info -->
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🐠 ข้อมูลตู้ปลา</div>
+            <div class="card-sub">TANK INFORMATION</div>
+          </div>
+          <div class="flex gap-2 flex-center">
+            <span class="badge badge-ok" id="badge-status">ONLINE</span>
+            <button class="btn btn-ghost" style="padding:6px 12px;font-size:.72rem;" onclick="openEditTankModal()">✎ EDIT</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="field-row">
+            <div class="field"><span class="field-label">ชื่อตู้</span><input class="field-input" id="disp-name" readonly></div>
+            <div class="field"><span class="field-label">ชนิดสัตว์น้ำ</span><input class="field-input" id="disp-species" readonly></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><span class="field-label">โซน / ตำแหน่ง</span><input class="field-input" id="disp-location" readonly></div>
+            <div class="field"><span class="field-label">Device ID (ESP32)</span><input class="field-input" id="disp-device" readonly></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Temperature -->
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🌡 อุณหภูมิน้ำ</div>
+            <div class="card-sub">TEMPERATURE THRESHOLDS (°C)</div>
+          </div>
+          <span class="badge badge-ok" id="badge-temp">OK</span>
+        </div>
+        <div class="card-body">
+          <div class="field-row triple">
+            <div class="field">
+              <label class="field-label">MIN (°C)</label>
+              <input class="field-input" type="number" step="0.5" id="min-temp" placeholder="24.0" oninput="validateTemp();updateSummary()">
+              <span class="field-hint" id="hint-min">ต่ำสุดที่รับได้</span>
+            </div>
+            <div class="field">
+              <label class="field-label">TARGET (°C)</label>
+              <input class="field-input" type="number" step="0.5" id="target-temp" placeholder="28.0" oninput="validateTemp();updateSummary()">
+              <span class="field-hint" id="hint-target">อุณหภูมิเป้าหมาย</span>
+            </div>
+            <div class="field">
+              <label class="field-label">MAX (°C)</label>
+              <input class="field-input" type="number" step="0.5" id="max-temp" placeholder="32.0" oninput="validateTemp();updateSummary()">
+              <span class="field-hint" id="hint-max">สูงสุดที่รับได้</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Water Quality -->
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">⚗ คุณภาพน้ำ</div>
+            <div class="card-sub">WATER QUALITY ALERT TRIGGERS</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">pH สูงสุด (alert)</label>
+              <input class="field-input" type="number" step="0.1" id="trigger-ph" placeholder="8.5" oninput="validatePh();updateSummary()">
+              <span class="field-hint" id="hint-ph">เกินนี้จะส่ง alert</span>
+            </div>
+            <div class="field">
+              <label class="field-label">pH ต่ำสุด (warn)</label>
+              <input class="field-input" type="number" step="0.1" id="trigger-ph-low" placeholder="6.5" oninput="validatePh();updateSummary()">
+              <span class="field-hint" id="hint-ph-low">ต่ำกว่านี้จะ warn</span>
+            </div>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">ความขุ่นสูงสุด (NTU)</label>
+              <input class="field-input" type="number" step="1" id="trigger-turbidity" placeholder="50" oninput="validateTurbidity();updateSummary()">
+              <span class="field-hint" id="hint-turb">เกินนี้จะส่ง alert</span>
+            </div>
+            <div class="field">
+              <label class="field-label">ระดับน้ำต่ำสุด (%)</label>
+              <input class="field-input" type="number" step="1" id="trigger-water-low" placeholder="30" min="0" max="100" oninput="updateSummary()">
+              <span class="field-hint">ต่ำกว่านี้จะ alert</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Feeding -->
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🍽 ตารางให้อาหาร</div>
+            <div class="card-sub">MULTI-MEAL FEEDING SCHEDULE</div>
+          </div>
+          <span class="badge badge-off" id="badge-feed">AUTO OFF</span>
+        </div>
+        <div class="card-body">
+          <div class="toggle-wrap">
+            <div class="toggle-info">
+              <span class="toggle-name">Auto Feed</span>
+              <span class="toggle-desc">ให้อาหารอัตโนมัติตามมื้อที่กำหนด</span>
+            </div>
+            <div class="toggle-btn" id="toggle-feed" onclick="toggleFeed()"><div class="toggle-knob"></div></div>
+          </div>
+          <div class="toggle-wrap">
+            <div class="toggle-info">
+              <span class="toggle-name">Skip Weekend (ลด 30%)</span>
+              <span class="toggle-desc">ลดปริมาณอาหาร 30% วันเสาร์–อาทิตย์</span>
+            </div>
+            <div class="toggle-btn" id="toggle-weekend" onclick="toggleEl('toggle-weekend');updateMealSummary()"><div class="toggle-knob"></div></div>
+          </div>
+          <hr class="divider">
+          <div class="field-row">
+            <div class="field">
+              <label class="field-label">ชนิดอาหาร</label>
+              <select class="field-select" id="food-type">
+                <option value="pellet">เม็ด (Pellet)</option>
+                <option value="flake">แผ่น (Flake)</option>
+                <option value="live">อาหารมีชีวิต</option>
+                <option value="powder">ผง (Powder)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field-label">ขนาดเม็ด</label>
+              <select class="field-select" id="food-size">
+                <option value="xs">XS — ลูกปลาอ่อน (&lt;1mm)</option>
+                <option value="s">S — ลูกปลา (1–2mm)</option>
+                <option value="m" selected>M — ปลาทั่วไป (2–4mm)</option>
+                <option value="l">L — ปลาใหญ่ (4–6mm)</option>
+                <option value="xl">XL — ปลาโต (&gt;6mm)</option>
+              </select>
+            </div>
+          </div>
+          <div class="panel-label" style="margin-top:14px;">มื้ออาหาร — คลิกแก้ไขได้เลย</div>
+          <div class="meal-list" id="meal-list"></div>
+          <button class="btn-add-meal" onclick="addMeal()">+ เพิ่มมื้อใหม่</button>
+          <div class="meal-summary">
+            <div class="ms-item"><span class="ms-label">มื้อ/วัน</span><span class="ms-val" id="ms-count">0</span></div>
+            <div class="ms-item"><span class="ms-label">รวม/วัน</span><span class="ms-val" id="ms-total">0 g</span></div>
+            <div class="ms-item"><span class="ms-label">รวม/สัปดาห์</span><span class="ms-val" id="ms-week">0 g</span></div>
+            <div class="ms-item"><span class="ms-label">มื้อแรก</span><span class="ms-val" id="ms-first">—</span></div>
+            <div class="ms-item"><span class="ms-label">มื้อสุดท้าย</span><span class="ms-val" id="ms-last">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card: Notifications -->
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">🔔 การแจ้งเตือน</div>
+            <div class="card-sub">NOTIFICATION TOGGLES</div>
+          </div>
+        </div>
+        <div class="card-body" style="padding-top:4px;padding-bottom:4px;">
+          <div class="toggle-wrap"><div class="toggle-info"><span class="toggle-name">Alert อุณหภูมิ</span><span class="toggle-desc">แจ้งเตือนเมื่ออุณหภูมินอกช่วง</span></div><div class="toggle-btn on" id="t-alert-temp" onclick="toggleEl('t-alert-temp')"><div class="toggle-knob"></div></div></div>
+          <div class="toggle-wrap"><div class="toggle-info"><span class="toggle-name">Alert pH</span><span class="toggle-desc">แจ้งเตือนเมื่อ pH ผิดปกติ</span></div><div class="toggle-btn on" id="t-alert-ph" onclick="toggleEl('t-alert-ph')"><div class="toggle-knob"></div></div></div>
+          <div class="toggle-wrap"><div class="toggle-info"><span class="toggle-name">Alert ความขุ่น</span><span class="toggle-desc">แจ้งเตือนเมื่อน้ำขุ่นเกินกำหนด</span></div><div class="toggle-btn on" id="t-alert-turb" onclick="toggleEl('t-alert-turb')"><div class="toggle-knob"></div></div></div>
+          <div class="toggle-wrap"><div class="toggle-info"><span class="toggle-name">Alert ระดับน้ำ</span><span class="toggle-desc">แจ้งเตือนเมื่อน้ำต่ำกว่า threshold</span></div><div class="toggle-btn" id="t-alert-water" onclick="toggleEl('t-alert-water')"><div class="toggle-knob"></div></div></div>
+          <div class="toggle-wrap"><div class="toggle-info"><span class="toggle-name">Repeat Alert</span><span class="toggle-desc">แจ้งซ้ำทุก 30 นาที ถ้าปัญหายังไม่แก้</span></div><div class="toggle-btn" id="t-repeat" onclick="toggleEl('t-repeat')"><div class="toggle-knob"></div></div></div>
+        </div>
+      </div>
+
+      <!-- Card: Danger Zone -->
+      <div class="card" class="card danger-zone">
+        <div class="card-head">
+          <div>
+            <div class="card-title text-alert">⚠ Danger Zone</div>
+            <div class="card-sub">การกระทำที่ย้อนกลับไม่ได้</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="danger-row">
+            <div class="danger-info">
+              <span class="danger-name">Reset ค่าตั้งค่า</span>
+              <span class="danger-desc">คืนค่า threshold กลับเป็น preset ของชนิดปลา</span>
+            </div>
+            <button class="btn btn-warn" onclick="loadDefaults()">RESET DEFAULT</button>
+          </div>
+          <div class="danger-row">
+            <div class="danger-info">
+              <span class="danger-name">ลบตู้ปลานี้ออกจากระบบ</span>
+              <span class="danger-desc">ข้อมูลและ log ทั้งหมดจะถูกลบถาวร</span>
+            </div>
+            <button class="btn btn-alert" onclick="confirmDeleteTank()">DELETE TANK</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Buttons -->
+      <div class="flex gap-3 flex-center mt-4">
+        <button class="btn btn-save" onclick="saveSettings()">✔ SAVE SETTINGS</button>
+        <button class="btn btn-ghost" onclick="loadDefaults()">↺ RESET</button>
+      </div>
+
+    </div><!-- /form-col -->
+
+    <!-- ── RIGHT COLUMN: Preview ── -->
+    <div class="preview-panel">
+
+      <!-- Live Sensor -->
+      <div class="cur-card">
+        <div class="cur-head">LIVE SENSOR — <span id="prev-tank-name">—</span></div>
+        <div class="cur-row"><span class="cur-label">TEMPERATURE</span><span class="cur-val" id="cur-temp">—</span></div>
+        <div class="cur-row"><span class="cur-label">pH LEVEL</span><span class="cur-val" id="cur-ph">—</span></div>
+        <div class="cur-row"><span class="cur-label">TURBIDITY</span><span class="cur-val" id="cur-turb">—</span></div>
+        <div class="cur-row"><span class="cur-label">WATER LEVEL</span><span class="cur-val" id="cur-water">—</span></div>
+      </div>
+
+      <!-- Settings Summary -->
+      <div class="cur-card">
+        <div class="cur-head">SETTINGS SUMMARY</div>
+        <div class="cur-row"><span class="cur-label">TEMP MIN/TGT/MAX</span><span class="cur-val text-xs" id="sum-temp">—</span></div>
+        <div class="cur-row"><span class="cur-label">pH RANGE</span><span class="cur-val" id="sum-ph">—</span></div>
+        <div class="cur-row"><span class="cur-label">TURBIDITY LIMIT</span><span class="cur-val" id="sum-turb">—</span></div>
+        <div class="cur-row"><span class="cur-label">WATER MIN</span><span class="cur-val" id="sum-water">—</span></div>
+        <div class="cur-row"><span class="cur-label">MEALS / TOTAL</span><span class="cur-val text-xs" id="sum-meals">—</span></div>
+        <div class="cur-row"><span class="cur-label">AUTO FEED</span><span class="cur-val" id="sum-feed">—</span></div>
+      </div>
+
+      <!-- Tank Info -->
+      <div class="cur-card">
+        <div class="cur-head">TANK INFO</div>
+        <div class="cur-row"><span class="cur-label">SPECIES</span><span class="cur-val text-xs" id="info-species">—</span></div>
+        <div class="cur-row"><span class="cur-label">LOCATION</span><span class="cur-val text-xs" id="info-location">—</span></div>
+        <div class="cur-row"><span class="cur-label">DEVICE ID</span><span class="cur-val text-xs" id="info-device">—</span></div>
+        <div class="cur-row"><span class="cur-label">STATUS</span><span id="info-status">—</span></div>
+      </div>
+
+      <!-- DB Status -->
+      <div class="cur-card">
+        <div class="cur-head">DATABASE STATUS</div>
+        <div class="db-status">
+          <div class="db-row"><span class="db-label">LAST SAVE</span><span class="db-val" id="db-last-save">—</span></div>
+          <div class="db-row"><span class="db-label">RESULT</span><span class="db-val" id="db-save-result">—</span></div>
+        </div>
+        <div style="padding:0 14px 14px;">
+          <button class="btn btn-cyan w-full text-xs" onclick="saveSettings()">⬆ SAVE TO DATABASE</button>
+        </div>
+      </div>
+
+      <!-- Quick Links -->
+      <div class="cur-card">
+        <div class="cur-head">QUICK LINKS</div>
+        <div style="padding:12px 16px;display:flex;flex-direction:column;gap:9px;">
+          <a href="index.html" class="text-cyan text-xs text-mono">→ DASHBOARD</a>
+          <a href="tank_detail.html" class="text-muted text-xs text-mono">→ TANK DETAIL</a>
+          <a href="history.html" class="text-muted text-xs text-mono">→ SENSOR HISTORY</a>
+          <a href="alert_log.html" class="text-muted text-xs text-mono">→ ALERT LOG</a>
+          <a href="simulator.html" class="text-muted text-xs text-mono">→ SIMULATOR</a>
+        </div>
+      </div>
+
+    </div><!-- /preview-col -->
+  </div><!-- /settings-layout -->
+</main>
+
+<!-- ── STATUSBAR ── -->
+<footer class="statusbar">
+  <div class="sb-item"><div class="sb-dot"></div><span id="sb-conn">SYSTEM ONLINE</span></div>
+  <div class="sb-item">VER 2.2.0</div>
+  <div class="sb-right" id="sb-time">—</div>
+</footer>
+
+<!-- ── OVERLAYS ── -->
+<div class="toast-container" id="toast-container"></div>
+<div class="save-overlay" id="save-overlay">
+  <div class="save-spinner" id="save-spinner"></div>
+  <span id="save-overlay-msg">กำลังบันทึก...</span>
+</div>
+
+<!-- MODAL: เพิ่มตู้ -->
+<div class="modal-overlay" id="modal-add">
+  <div class="modal">
+    <div class="modal-head">
+      <span class="modal-title">+ เพิ่มตู้ปลาใหม่</span>
+      <button class="modal-close" onclick="closeModal('modal-add')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field-row">
+        <div class="field"><label class="field-label">ชื่อตู้ *</label><input class="field-input" id="new-name" placeholder="เช่น Tank F1 - Tilapia"></div>
+        <div class="field"><label class="field-label">ชนิดสัตว์น้ำ *</label><input class="field-input" id="new-species" placeholder="เช่น Tilapia, Dory, Clownfish"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label class="field-label">โซน / ตำแหน่ง</label><input class="field-input" id="new-location" placeholder="เช่น Zone F"></div>
+        <div class="field"><label class="field-label">Device ID (ESP32)</label><input class="field-input" id="new-device" placeholder="เช่น ESP32-F1"></div>
+      </div>
+      <div class="field-row single">
+        <div class="field"><label class="field-label">Preset ค่าเริ่มต้น</label>
+          <select class="field-select" id="new-preset">
+            <option value="default">ค่า Default ทั่วไป</option>
+            <option value="tilapia">ปลานิล / ทับทิม</option>
+            <option value="shrimp">กุ้งขาว / ก้ามกราม</option>
+            <option value="catfish">ปลาดุก</option>
+            <option value="blank">ว่างเปล่า</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add')">CANCEL</button>
+      <button class="btn btn-save" onclick="addTank()">+ ADD TANK</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: แก้ไขตู้ (redesigned) -->
+<div class="modal-overlay" id="modal-edit">
+  <div class="modal modal-lg">
+    <div class="modal-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:36px;height:36px;border-radius:8px;background:rgba(0,200,255,0.1);border:1px solid rgba(0,200,255,0.25);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">✎</div>
+        <div>
+          <div class="modal-title" style="font-size:1rem;">แก้ไขข้อมูลตู้ปลา</div>
+          <div style="font-family:var(--f-mono);font-size:0.8rem;color:var(--tx-lo);letter-spacing:0.1em;margin-top:2px;">EDIT TANK INFORMATION</div>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-edit')">×</button>
+    </div>
+    <div class="modal-body" style="padding:24px 28px;">
+      <div style="margin-bottom:20px;">
+        <label class="field-label-lg">🏷 ชื่อตู้ปลา <span style="color:var(--alert);">*</span></label>
+        <input class="field-input field-input-lg" id="edit-name" placeholder="เช่น Tank A1 - Tilapia" autocomplete="off">
+        <div style="font-size:0.72rem;color:var(--tx-lo);margin-top:5px;font-family:var(--f-mono);">ชื่อที่แสดงในระบบ Dashboard และ Alerts</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 200px;gap:16px;margin-bottom:20px;">
+        <div>
+          <label class="field-label-lg">🐟 ชนิดสัตว์น้ำ</label>
+          <input class="field-input field-input-lg" id="edit-species" placeholder="เช่น Tilapia, Dory, Clownfish, Catfish">
+        </div>
+        <div>
+          <label class="field-label-lg">📡 สถานะ</label>
+          <select class="field-select field-input-lg" id="edit-status" style="height:48px;">
+            <option value="online">🟢 Online</option>
+            <option value="offline">⚫ Offline</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px;">
+        <div>
+          <label class="field-label-lg">📍 โซน / ตำแหน่ง</label>
+          <input class="field-input field-input-lg" id="edit-location" placeholder="เช่น Zone A.1, อาคาร B">
+        </div>
+        <div>
+          <label class="field-label-lg">🔌 Device ID (ESP32)</label>
+          <input class="field-input field-input-lg" id="edit-device" placeholder="เช่น ESP32-A1">
+          <div style="font-size:0.8rem;color:var(--tx-lo);margin-top:4px;font-family:var(--f-mono);">รหัสอุปกรณ์ IoT ที่ผูกกับตู้นี้</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="padding:16px 28px;gap:12px;">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit')" style="padding:10px 24px;font-size:0.82rem;">✕ ยกเลิก</button>
+      <div style="flex:1;"></div>
+      <div id="edit-error-msg" style="font-family:var(--f-mono);font-size:0.72rem;color:var(--alert);display:none;align-items:center;gap:6px;">
+        <span>⚠</span><span id="edit-error-text"></span>
+      </div>
+      <button class="btn btn-save" onclick="saveEditTank()" style="padding:10px 28px;font-size:0.85rem;min-width:140px;">✔ บันทึกการแก้ไข</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ SCRIPT ══════════════════ -->
+<script>
+/* ─────────────────────────────────────────────
+   BUG FIX: getApiBase()
+   ปัญหาเดิม: เมื่อหน้าอยู่ที่ /admin/settings.html
+   path ../api จะถูก resolve เป็น /api ซึ่งอาจผิด
+   แก้โดย: ถ้าไม่ได้ set ค่าใน localStorage → ใช้ relative path
+   ที่ถูกต้องตาม location ปัจจุบัน
+─────────────────────────────────────────────── */
+function getApiBase() {
+  const saved = (localStorage.getItem('aquaos_api_base') || '').replace(/\/+$/, '');
+  if (saved) return saved;
+  // auto-detect: ถ้าอยู่ใน /admin/ → ใช้ ../api, ถ้าไม่ → ใช้ api
+  const path = window.location.pathname;
+  if (path.includes('/admin/')) return '../api';
+  return 'api';
+}
+
+function onApiBaseChange() {
+  const val = document.getElementById('api-base-input').value.trim().replace(/\/+$/, '');
+  if (val) localStorage.setItem('aquaos_api_base', val);
+  else localStorage.removeItem('aquaos_api_base');
+}
+
+/* ─── STATE ─── */
+let tanks = [
+  {id:1,name:'Tank A1 - Tilapia',  species:'Tilapia',  location:'Zone A', device_id:'ESP32-A1', status:'online',  note:''},
+  {id:2,name:'Tank B2 - Dory',     species:'Dory',     location:'Zone B', device_id:'ESP32-B2', status:'online',  note:''},
+  {id:3,name:'Tank C1 - Catfish',  species:'Catfish',  location:'Zone C', device_id:'ESP32-C1', status:'online',  note:''},
+  {id:4,name:'Tank D3 - Clownfish',species:'Clownfish', location:'Zone D', device_id:'ESP32-D3', status:'offline', note:''},
+  {id:5,name:'Tank E2 - Red Tilapia',species:'Tilapia',location:'Zone E', device_id:'ESP32-E2', status:'online',  note:''},
+];
+let activeTankId = 1, meals = [], _isApiMode = false;
+
+const PRESETS = {
+  default: {min_temp:24,target_temp:28,max_temp:32,trigger_ph:8.5,trigger_ph_low:6.5,trigger_turbidity:50,trigger_water_low:30,meals:[{time:'08:00',amount:250,note:'มื้อเช้า'}]},
+  tilapia: {min_temp:25,target_temp:28,max_temp:33,trigger_ph:8.5,trigger_ph_low:6.5,trigger_turbidity:50,trigger_water_low:30,meals:[{time:'07:00',amount:200,note:'เช้า'},{time:'12:00',amount:150,note:'กลางวัน'},{time:'17:00',amount:200,note:'เย็น'}]},
+  shrimp:  {min_temp:26,target_temp:28,max_temp:31,trigger_ph:8.0,trigger_ph_low:7.5,trigger_turbidity:40,trigger_water_low:40,meals:[{time:'06:00',amount:80,note:'เช้า'},{time:'18:00',amount:80,note:'เย็น'}]},
+  catfish: {min_temp:24,target_temp:29,max_temp:34,trigger_ph:8.5,trigger_ph_low:6.0,trigger_turbidity:60,trigger_water_low:25,meals:[{time:'08:30',amount:300,note:'มื้อเช้า'}]},
+  blank:   {min_temp:'',target_temp:'',max_temp:'',trigger_ph:'',trigger_ph_low:'',trigger_turbidity:'',trigger_water_low:'',meals:[]},
+};
+
+/* ─── CLOCK ─── */
+setInterval(() => {
+  const t = new Date().toLocaleTimeString('th-TH', {hour12:false});
+  const el = document.getElementById('sb-time');
+  if (el) el.textContent = t;
+}, 1000);
+
+/* ─── API RELOAD ─── */
+async function reloadFromApi() {
+  const r = document.getElementById('api-load-result');
+  r.textContent = '⏳ กำลังโหลด...';
+  r.style.color = 'var(--cyan)';
+  try {
+    const res = await fetch(`${getApiBase()}/get_latest.php`, {cache:'no-store'});
+    /* BUG FIX: ตรวจ content-type ก่อน parse JSON เพื่อหลีกเลี่ยง HTML error */
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      throw new Error(`Server ส่ง HTML กลับมา (HTTP ${res.status}) — ตรวจสอบ API BASE URL`);
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    if (!j.success || !j.data?.length) throw new Error(j.message || 'no data');
+    tanks = j.data.map(td => ({
+      id: td.tank_id,
+      name: td.tank_name || `Tank ${td.tank_id}`,
+      species: td.species || '—',
+      location: td.location || '—',
+      device_id: td.device_id || `ESP32-${td.tank_id}`,
+      status: td.status || 'online',
+      note: ''
+    }));
+    _isApiMode = true;
+    r.textContent = `✓ โหลดสำเร็จ — ${tanks.length} ตู้`;
+    r.style.color = 'var(--ok)';
+    document.getElementById('hdr-api').textContent = 'OK';
+    document.getElementById('hdr-tanks').textContent = tanks.length;
+    activeTankId = tanks[0].id;
+    buildTabs();
+    await loadSettings(activeTankId);
+    showToast(`โหลดข้อมูลจาก API สำเร็จ — ${tanks.length} ตู้`, 'success');
+  } catch (err) {
+    r.textContent = `✕ ${err.message}`;
+    r.style.color = 'var(--alert)';
+    showToast('ใช้ Mock data — ' + err.message, 'warn');
+    buildTabs();
+    await loadSettings(activeTankId);
+  }
+}
+
+/* ─── BUILD TABS ─── */
+function buildTabs() {
+  const wrap = document.getElementById('tank-tabs');
+  wrap.innerHTML = '';
+  tanks.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'tank-tab' + (t.id === activeTankId ? ' active' : '');
+    btn.onclick = () => switchTank(t.id);
+    const dot = document.createElement('div');
+    dot.className = 'tab-dot' + (t.status === 'offline' ? ' offline' : '');
+    btn.appendChild(dot);
+    btn.appendChild(document.createTextNode(t.name));
+    wrap.appendChild(btn);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.className = 'btn-add-tank';
+  addBtn.textContent = '+ ADD TANK';
+  addBtn.onclick = openAddTankModal;
+  wrap.appendChild(addBtn);
+}
+
+function switchTank(id) { activeTankId = id; buildTabs(); loadSettings(id); }
+
+/* ─── LOAD SETTINGS ─── */
+async function loadSettings(tankId) {
+  setSync('loading', 'LOADING');
+  try {
+    const res = await fetch(`${getApiBase()}/get_latest.php?tank_id=${tankId}`, {cache:'no-store'});
+    /* BUG FIX: content-type check */
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      throw new Error('Server ส่ง HTML — ตรวจสอบ API URL หรือ PHP error');
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    const td = j.data && j.data[0];
+    if (!td) throw new Error('no data');
+    const idx = tanks.findIndex(t => t.id === tankId);
+    if (idx >= 0) {
+      tanks[idx].name = td.tank_name || tanks[idx].name;
+      tanks[idx].status = td.status || tanks[idx].status;
+    }
+    fillForm(td.settings || PRESETS.default, tanks.find(t => t.id === tankId) || tanks[0]);
+    updateSensorPreview(td.latest_sensor || null, td.settings || PRESETS.default);
+    setSync('ok', 'READY');
+    _isApiMode = true;
+  } catch (err) {
+    console.warn('loadSettings failed:', err.message);
+    const tank = tanks.find(t => t.id === tankId) || tanks[0];
+    const sp = (tank.species || '').toLowerCase();
+    const key = sp.includes('shrimp') || sp.includes('prawn') ? 'shrimp'
+              : sp.includes('catfish') ? 'catfish'
+              : sp.includes('tilapia') ? 'tilapia' : 'default';
+    fillForm(PRESETS[key], tank);
+    updateSensorPreview(null, PRESETS[key]);
+    setSync('ok', 'DEMO');
+    _isApiMode = false;
+  }
+}
+
+/* ─── FILL FORM ─── */
+function fillForm(sets, tank) {
+  setVal('disp-name', tank.name || '');
+  setVal('disp-species', tank.species || '');
+  setVal('disp-location', tank.location || '');
+  setVal('disp-device', tank.device_id || '');
+  document.getElementById('hdr-tank').textContent = tank.name || '—';
+  document.getElementById('prev-tank-name').textContent = tank.name || '—';
+  const bdg = document.getElementById('badge-status');
+  bdg.textContent = tank.status === 'offline' ? 'OFFLINE' : 'ONLINE';
+  bdg.className = tank.status === 'offline' ? 'badge badge-off' : 'badge badge-ok';
+  setVal('min-temp', sets.min_temp);
+  setVal('target-temp', sets.target_temp);
+  setVal('max-temp', sets.max_temp);
+  // API ส่งมาเป็น trigger_ph_high (จาก get_latest) หรือ trigger_ph (จาก PRESETS)
+  setVal('trigger-ph',      sets.trigger_ph_high ?? sets.trigger_ph ?? '');
+  setVal('trigger-ph-low',  sets.trigger_ph_low  ?? '');
+  setVal('trigger-turbidity', sets.trigger_turbidity ?? '');
+  setVal('trigger-water-low', sets.trigger_water_low ?? 30);
+  meals = sets.meals ? JSON.parse(JSON.stringify(sets.meals)) : [{time:'08:00', amount:250, note:'มื้อเช้า'}];
+  renderMeals();
+  const isOn = sets.auto_feed_status === 'on';
+  setToggle('toggle-feed', isOn);
+  updateFeedBadge(isOn);
+  updateSummary();
+}
+
+/* ─── MEALS ─── */
+function renderMeals() {
+  const list = document.getElementById('meal-list');
+  list.innerHTML = '';
+  meals.forEach((m, i) => {
+    const row = document.createElement('div');
+    row.className = 'meal-item';
+    row.innerHTML = `
+      <span class="meal-num">มื้อ ${i+1}</span>
+      <input class="meal-time" type="time" value="${m.time}" onchange="meals[${i}].time=this.value;updateMealSummary()">
+      <input class="meal-amount" type="number" value="${m.amount}" min="10" max="2000" step="10" onchange="meals[${i}].amount=+this.value;updateMealSummary()">
+      <span class="meal-unit">g</span>
+      <input class="meal-note" type="text" value="${m.note}" placeholder="หมายเหตุ" oninput="meals[${i}].note=this.value">
+      <button class="btn-del-meal" onclick="deleteMeal(${i})" title="ลบ">✕</button>`;
+    list.appendChild(row);
+  });
+  updateMealSummary();
+}
+
+function addMeal() {
+  let t = '08:00';
+  if (meals.length > 0) {
+    const last = meals[meals.length-1].time || '08:00';
+    const [h, m] = last.split(':').map(Number);
+    t = `${String((h+4)%24).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+  meals.push({time:t, amount:150, note:''});
+  renderMeals();
+}
+
+function deleteMeal(i) {
+  if (meals.length <= 1) { showToast('ต้องมีอย่างน้อย 1 มื้อ', 'error'); return; }
+  meals.splice(i, 1);
+  renderMeals();
+}
+
+function updateMealSummary() {
+  const total = meals.reduce((s, m) => s + (+m.amount || 0), 0);
+  const skip = document.getElementById('toggle-weekend').classList.contains('on');
+  const wknd = skip ? Math.round(total * 0.7) : total;
+  const wk = (total * 5) + (wknd * 2);
+  document.getElementById('ms-count').textContent = meals.length;
+  document.getElementById('ms-total').textContent = total + ' g';
+  document.getElementById('ms-week').textContent = wk + ' g';
+  const sorted = [...meals].sort((a,b) => a.time.localeCompare(b.time));
+  document.getElementById('ms-first').textContent = sorted.length ? sorted[0].time : '—';
+  document.getElementById('ms-last').textContent = sorted.length ? sorted[sorted.length-1].time : '—';
+  document.getElementById('sum-meals').textContent = `${meals.length} มื้อ / ${total} g`;
+}
+
+/* ─── VALIDATE ─── */
+function validateTemp() {
+  const mn = parseFloat(document.getElementById('min-temp').value);
+  const tg = parseFloat(document.getElementById('target-temp').value);
+  const mx = parseFloat(document.getElementById('max-temp').value);
+  const badge = document.getElementById('badge-temp');
+  let ok = true;
+  if (!isNaN(mn) && !isNaN(mx) && mn >= mx) { setHint('hint-min','min ต้องน้อยกว่า max','error'); ok = false; }
+  else setHint('hint-min','ต่ำสุดที่รับได้','');
+  if (!isNaN(tg) && !isNaN(mn) && !isNaN(mx) && (tg < mn || tg > mx)) { setHint('hint-target','target ต้องอยู่ระหว่าง min–max','error'); ok = false; }
+  else setHint('hint-target','อุณหภูมิเป้าหมาย','');
+  badge.textContent = ok ? 'OK' : 'ERROR';
+  badge.className = ok ? 'badge badge-ok' : 'badge badge-alert';
+  return ok;
+}
+
+function validatePh() {
+  const hi = parseFloat(document.getElementById('trigger-ph').value);
+  const lo = parseFloat(document.getElementById('trigger-ph-low').value);
+  if (!isNaN(hi) && !isNaN(lo) && lo >= hi) {
+    setHint('hint-ph','pH max ต้องมากกว่า min','error');
+    setHint('hint-ph-low','pH min ต้องน้อยกว่า max','error');
+    return false;
+  }
+  setHint('hint-ph','เกินนี้จะส่ง alert','');
+  setHint('hint-ph-low','ต่ำกว่านี้จะ warn','');
+  return true;
+}
+
+function validateTurbidity() {
+  const v = parseFloat(document.getElementById('trigger-turbidity').value);
+  if (!isNaN(v) && v <= 0) { setHint('hint-turb','ต้องมากกว่า 0','error'); return false; }
+  setHint('hint-turb','เกินนี้จะส่ง alert','');
+  return true;
+}
+
+/* ─── SUMMARY ─── */
+function updateSummary() {
+  const get = id => document.getElementById(id)?.value || '—';
+  document.getElementById('sum-temp').textContent = `${get('min-temp')} / ${get('target-temp')} / ${get('max-temp')} °C`;
+  document.getElementById('sum-ph').textContent = `${get('trigger-ph-low')} ~ ${get('trigger-ph')}`;
+  const turb = get('trigger-turbidity');
+  document.getElementById('sum-turb').textContent = turb !== '—' ? `${turb} NTU` : '—';
+  const wat = get('trigger-water-low');
+  document.getElementById('sum-water').textContent = wat !== '—' ? `${wat} %` : '—';
+  updateMealSummary();
+}
+
+/* ─── SENSOR PREVIEW ─── */
+function updateSensorPreview(sensor, sets) {
+  const tank = tanks.find(t => t.id === activeTankId) || {};
+  document.getElementById('info-species').textContent = tank.species || '—';
+  document.getElementById('info-location').textContent = tank.location || '—';
+  document.getElementById('info-device').textContent = tank.device_id || '—';
+  const stEl = document.getElementById('info-status');
+  stEl.innerHTML = tank.status === 'offline'
+    ? '<span class="badge badge-offline" style="font-size:.8rem;">OFFLINE</span>'
+    : '<span class="badge badge-ok" style="font-size:.8rem;">ONLINE</span>';
+  if (!sensor) {
+    ['cur-temp','cur-ph','cur-turb','cur-water'].forEach(id => {
+      const e = document.getElementById(id); e.textContent = '—'; e.className = 'cur-val';
+    });
+    return;
+  }
+  const mn = parseFloat(sets.min_temp||24), mx = parseFloat(sets.max_temp||32);
+  const tph = parseFloat(sets.trigger_ph||8.5), tphl = parseFloat(sets.trigger_ph_low||6.5);
+  const tturb = parseFloat(sets.trigger_turbidity||50), twat = parseFloat(sets.trigger_water_low||30);
+  const cv = (id, txt, cls) => { const e = document.getElementById(id); e.textContent = txt; e.className = 'cur-val ' + cls; };
+  const t = parseFloat(sensor.temperature);
+  cv('cur-temp', `${t.toFixed(1)} °C`, t > mx || t < mn ? 'alert' : (t > mx-2 || t < mn+2 ? 'warn' : 'ok'));
+  const p = parseFloat(sensor.ph_level);
+  cv('cur-ph', p.toFixed(2), p > tph || p < tphl ? 'alert' : (p > tph-0.3 || p < tphl+0.3 ? 'warn' : 'ok'));
+  const tr = parseFloat(sensor.turbidity);
+  cv('cur-turb', `${tr.toFixed(1)} NTU`, tr > tturb ? 'alert' : (tr > tturb*0.8 ? 'warn' : 'ok'));
+  const wl = parseFloat(sensor.water_level);
+  cv('cur-water', `${wl.toFixed(0)} %`, wl < twat ? 'alert' : (wl < twat+10 ? 'warn' : 'ok'));
+}
+
+/* ─── SAVE SETTINGS ─── (BUG FIX: content-type check ก่อน parse JSON) ─── */
+async function saveSettings() {
+  if (!validateTemp() || !validatePh() || !validateTurbidity()) return;
+  const minT = parseFloat(document.getElementById('min-temp').value);
+  const tgt  = parseFloat(document.getElementById('target-temp').value);
+  const maxT = parseFloat(document.getElementById('max-temp').value);
+  if (isNaN(minT) || isNaN(tgt) || isNaN(maxT)) { showToast('กรอกอุณหภูมิให้ครบ', 'error'); return; }
+  if (meals.length === 0) { showToast('ต้องมีอย่างน้อย 1 มื้อ', 'error'); return; }
+
+  const sorted = [...meals].sort((a,b) => a.time.localeCompare(b.time));
+  const mainFeedTime = (sorted[0]?.time || '08:00') + ':00';
+  const totalAmt = meals.reduce((s,m) => s + (+m.amount||0), 0);
+  const isOn = document.getElementById('toggle-feed').classList.contains('on');
+
+  const payload = {
+    tank_id: activeTankId,
+    target_temp: tgt,
+    min_temp: minT,
+    max_temp: maxT,
+    trigger_ph:        parseFloat(document.getElementById('trigger-ph').value)        || 8.5,
+    trigger_ph_low:    parseFloat(document.getElementById('trigger-ph-low').value)    || 6.5,
+    trigger_turbidity: parseFloat(document.getElementById('trigger-turbidity').value) || 50,
+    trigger_water_low: parseFloat(document.getElementById('trigger-water-low').value) || 30,
+    feeding_time: mainFeedTime,
+    feeding_amount: totalAmt,
+    auto_feed_status: isOn ? 'on' : 'off',
+    meals
+  };
+
+  showSaveOverlay('กำลังบันทึกลง Database...', true);
+  setSync('saving', 'SAVING...');
+  const btn = document.getElementById('btn-save-main');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ SAVING...'; }
+
+  try {
+    const res = await fetch(`${getApiBase()}/update_settings.php`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+
+    /* ★ BUG FIX CORE: ตรวจ content-type ก่อนเสมอ
+       ถ้า PHP มี error → ส่ง text/html กลับมา (ไม่ใช่ JSON)
+       → parse JSON ตรงๆ จะ throw "Unexpected token '<'"
+       ตอนนี้เราดักไว้ก่อนและแสดง error ที่อ่านเข้าใจได้ */
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const bodyText = await res.text();
+      // ดึง PHP error message ออกมา (strip HTML tags)
+      const errMsg = bodyText.replace(/<[^>]+>/g, ' ').replace(/\s+/g,' ').trim().substring(0, 120);
+      throw new Error(`Server ส่ง HTML กลับมา — PHP Error: ${errMsg || 'ตรวจสอบ error log'}`);
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const j = await res.json();
+    if (!j.success) throw new Error(j.message || 'save failed');
+
+    const now = new Date().toLocaleString('th-TH', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    document.getElementById('db-last-save').textContent = now;
+    const dr = document.getElementById('db-save-result');
+    dr.textContent = `✓ ${j.action} สำเร็จ`;
+    dr.style.color = 'var(--ok)';
+    // อัปเดต summary จากค่าที่ DB ยืนยันกลับมา
+    if (j.settings) {
+      setVal('trigger-ph',      j.settings.trigger_ph_high ?? j.settings.trigger_ph ?? '');
+      setVal('trigger-ph-low',  j.settings.trigger_ph_low  ?? '');
+      setVal('trigger-turbidity', j.settings.trigger_turbidity ?? '');
+      setVal('trigger-water-low', j.settings.trigger_water_low ?? '');
+      updateSummary();
+    }
+    showSaveOverlay(`✓ บันทึกสำเร็จ (${j.action})`, false);
+    setSync('ok', 'SAVED');
+    showToast(`✔ บันทึกสำเร็จ — ${j.action}`, 'success');
+
+  } catch (err) {
+    const dr = document.getElementById('db-save-result');
+    dr.textContent = `✕ ${err.message}`;
+    dr.style.color = 'var(--alert)';
+    showSaveOverlay(`✕ ${err.message}`, false, 'error');
+    setSync('error', 'ERROR');
+    showToast(`✕ ${err.message}`, 'error');
+    setTimeout(() => setSync('ok', 'READY'), 4000);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✔ SAVE SETTINGS'; }
+    setTimeout(() => hideSaveOverlay(), 4000);
+  }
+}
+
+/* ─── OVERLAYS ─── */
+function showSaveOverlay(msg, loading, type) {
+  const ov = document.getElementById('save-overlay');
+  const sp = document.getElementById('save-spinner');
+  const ms = document.getElementById('save-overlay-msg');
+  ov.style.borderColor = type === 'error' ? 'var(--alert-bdr)' : 'var(--ok-bdr)';
+  ms.style.color = type === 'error' ? 'var(--alert)' : 'var(--ok)';
+  ms.textContent = msg;
+  sp.style.display = loading ? 'block' : 'none';
+  ov.classList.add('show');
+}
+function hideSaveOverlay() { document.getElementById('save-overlay').classList.remove('show'); }
+
+/* ─── MODAL ─── */
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(el =>
+  el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); })
+);
+
+function openAddTankModal() {
+  ['new-name','new-species','new-location','new-device'].forEach(id => {
+    document.getElementById(id).value = '';
+    document.getElementById(id).classList.remove('invalid');
+  });
+  openModal('modal-add');
+}
+
+async function addTank() {
+  const name    = document.getElementById('new-name').value.trim();
+  const species = document.getElementById('new-species').value.trim();
+  const location = document.getElementById('new-location').value.trim();
+  const device   = document.getElementById('new-device').value.trim();
+  const presetKey = document.getElementById('new-preset').value;
+
+  if (!name) {
+    document.getElementById('new-name').classList.add('invalid');
+    showToast('กรุณาใส่ชื่อตู้', 'error');
+    return;
+  }
+
+  const saveBtn = document.querySelector('#modal-add .btn-save');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ กำลังบันทึก...'; }
+
+  try {
+    const res = await fetch(`${getApiBase()}/tank_create.php`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        tank_name: name,
+        species:   species || null,
+        location:  location || null,
+        device_id: device || null,
+        status:    'online',
+        preset:    presetKey,
+      })
+    });
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const t = await res.text();
+      throw new Error('PHP Error: ' + t.replace(/<[^>]+>/g,' ').trim().substring(0, 120));
+    }
+    const j = await res.json();
+    if (!j.success) throw new Error(j.message || 'สร้างตู้ไม่สำเร็จ');
+
+    // เพิ่มเข้า local state (จาก DB response)
+    const newTank = {
+      id: j.tank_id,
+      name: j.tank.tank_name,
+      species: j.tank.species || 'Unknown',
+      location: j.tank.location || '—',
+      device_id: j.tank.device_id || '—',
+      status: j.tank.status || 'online',
+      note: '',
+    };
+    tanks.push(newTank);
+    closeModal('modal-add');
+    activeTankId = j.tank_id;
+    buildTabs();
+    // reload จาก DB เพื่อให้ได้ settings จริง
+    await loadSettings(activeTankId);
+    showToast(`✔ เพิ่มตู้ "${name}" และตั้งค่าเริ่มต้นสำเร็จ`, 'success');
+
+  } catch (err) {
+    console.error(err);
+    showToast(`✕ ${err.message}`, 'error');
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '+ ADD TANK'; }
+  }
+}
+
+function openEditTankModal() {
+  const tank = tanks.find(t => t.id === activeTankId);
+  if (!tank) return;
+  setVal('edit-name', tank.name);
+  setVal('edit-species', tank.species);
+  setVal('edit-location', tank.location);
+  setVal('edit-device', tank.device_id);
+  document.getElementById('edit-status').value = tank.status || 'online';
+  document.getElementById('edit-name').classList.remove('invalid');
+  openModal('modal-edit');
+}
+
+async function saveEditTank() {
+  const nameEl = document.getElementById('edit-name');
+  const name = nameEl.value.trim();
+  const errDiv = document.getElementById('edit-error-msg');
+  const errText = document.getElementById('edit-error-text');
+
+  // helper to show inline error in modal
+  function showEditError(msg) {
+    nameEl.classList.add('invalid');
+    if (errDiv && errText) {
+      errText.textContent = msg;
+      errDiv.style.display = 'flex';
+    }
+  }
+  function clearEditError() {
+    nameEl.classList.remove('invalid');
+    if (errDiv) errDiv.style.display = 'none';
+  }
+
+  clearEditError();
+  if (!name) { showEditError('กรุณาใส่ชื่อตู้ปลา'); nameEl.focus(); return; }
+
+  const tank = tanks.find(t => t.id === activeTankId);
+  if (!tank) return;
+
+  const newSpecies  = document.getElementById('edit-species').value.trim()  || tank.species;
+  const newLocation = document.getElementById('edit-location').value.trim() || tank.location;
+  const newDevice   = document.getElementById('edit-device').value.trim()   || tank.device_id;
+  const newStatus   = document.getElementById('edit-status').value;
+
+  const saveBtn = document.querySelector('#modal-edit .btn-save');
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ กำลังบันทึก...'; }
+
+  try {
+    const res = await fetch(`${getApiBase()}/update_settings.php`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        tank_id:   activeTankId,
+        tank_name: name,
+        species:   newSpecies,
+        location:  newLocation,
+        device_id: newDevice,
+        status:    newStatus
+      })
+    });
+
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const txt = await res.text();
+      throw new Error('PHP Error: ' + txt.replace(/<[^>]+>/g,' ').trim().substring(0,120));
+    }
+
+    const j = await res.json();
+    if (!j.success) throw new Error(j.message || 'update failed');
+
+    // ✅ อัปเดต local state จากค่าที่ DB ยืนยัน
+    tank.name      = j.tank.tank_name;
+    tank.species   = j.tank.species;
+    tank.location  = j.tank.location;
+    tank.device_id = j.tank.device_id;
+    tank.status    = j.tank.status;
+
+    closeModal('modal-edit');
+    buildTabs();
+    fillForm(getCurrentSettings(), tank);
+    showToast(`✔ อัปเดตข้อมูลตู้ "${name}" สำเร็จ`, 'success');
+
+  } catch (err) {
+    showEditError(err.message);
+    showToast(`✕ ${err.message}`, 'error');
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '✔ บันทึกการแก้ไข'; }
+  }
+}
+
+function getCurrentSettings() {
+  return {
+    min_temp:          parseFloat(document.getElementById('min-temp').value)          || 24,
+    target_temp:       parseFloat(document.getElementById('target-temp').value)       || 28,
+    max_temp:          parseFloat(document.getElementById('max-temp').value)          || 32,
+    trigger_ph:        parseFloat(document.getElementById('trigger-ph').value)        || 8.5,
+    trigger_ph_low:    parseFloat(document.getElementById('trigger-ph-low').value)    || 6.5,
+    trigger_turbidity: parseFloat(document.getElementById('trigger-turbidity').value) || 50,
+    trigger_water_low: parseFloat(document.getElementById('trigger-water-low').value) || 30,
+    auto_feed_status:  document.getElementById('toggle-feed').classList.contains('on') ? 'on' : 'off',
+    meals
+  };
+}
+
+async function confirmDeleteTank() {
+  const tank = tanks.find(t => t.id === activeTankId);
+  if (!tank) return;
+  if (tanks.length <= 1) { showToast('ไม่สามารถลบตู้สุดท้ายได้', 'error'); return; }
+  if (!confirm(`ลบ "${tank.name}" ออกจากระบบ?\n\nข้อมูล sensor log และ event log ทั้งหมดจะหายถาวร`)) return;
+
+  try {
+    const res = await fetch(`${getApiBase()}/tank_delete.php`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({tank_id: activeTankId})
+    });
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const t = await res.text();
+      throw new Error('PHP Error: ' + t.replace(/<[^>]+>/g,' ').trim().substring(0, 120));
+    }
+    const j = await res.json();
+    if (!j.success) throw new Error(j.message || 'ลบไม่สำเร็จ');
+
+    tanks = tanks.filter(t => t.id !== activeTankId);
+    activeTankId = tanks[0].id;
+    buildTabs();
+    await loadSettings(activeTankId);
+    showToast(`🗑 ลบ "${tank.name}" สำเร็จ`, 'info');
+  } catch (err) {
+    console.error(err);
+    showToast(`✕ ${err.message}`, 'error');
+  }
+}
+
+function loadDefaults() {
+  const tank = tanks.find(t => t.id === activeTankId) || tanks[0];
+  const sp = (tank.species || '').toLowerCase();
+  const key = sp.includes('shrimp') || sp.includes('prawn') ? 'shrimp'
+            : sp.includes('catfish') ? 'catfish'
+            : sp.includes('tilapia') ? 'tilapia' : 'default';
+  fillForm(PRESETS[key], tank);
+  showToast(`Reset เป็น preset "${key}"`, 'info');
+}
+
+/* ─── TOGGLES / FEED ─── */
+function toggleEl(id) { document.getElementById(id).classList.toggle('on'); }
+function toggleFeed() {
+  const el = document.getElementById('toggle-feed');
+  el.classList.toggle('on');
+  updateFeedBadge(el.classList.contains('on'));
+  updateSummary();
+}
+function updateFeedBadge(isOn) {
+  const b = document.getElementById('badge-feed');
+  const sf = document.getElementById('sum-feed');
+  if (b) { b.textContent = isOn ? 'AUTO ON' : 'AUTO OFF'; b.className = isOn ? 'badge badge-ok' : 'badge badge-off'; }
+  if (sf) { sf.textContent = isOn ? 'ON' : 'OFF'; sf.style.color = isOn ? 'var(--ok)' : 'var(--tx-lo)'; }
+}
+
+/* ─── HELPERS ─── */
+function setVal(id, val) { const e = document.getElementById(id); if (e) e.value = val ?? ''; }
+function setToggle(id, on) { const e = document.getElementById(id); if (e) { if (on) e.classList.add('on'); else e.classList.remove('on'); } }
+function setHint(id, text, type) { const e = document.getElementById(id); if (!e) return; e.textContent = text; e.className = 'field-hint' + (type ? ' ' + type : ''); }
+function setSync(state, label) {
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
+  if (lbl) lbl.textContent = label;
+  if (!dot) return;
+  dot.className = 'sync-dot';
+  if (state === 'saving') dot.classList.add('saving');
+  if (state === 'error')  dot.classList.add('error');
+}
+function showToast(msg, type = 'info') {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => { t.style.transition = 'opacity .3s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+/* ─── INIT ─── */
+window.addEventListener('load', async () => {
+  const saved = localStorage.getItem('aquaos_api_base') || '';
+  const inp = document.getElementById('api-base-input');
+  if (inp) inp.value = saved;
+  // โหลดรายชื่อตู้ทั้งหมดจาก DB ก่อน (ไม่ใช้ mock data)
+  await reloadFromApi();
+});
+</script>
+</body>
+</html>

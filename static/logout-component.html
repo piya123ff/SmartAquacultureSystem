@@ -1,0 +1,122 @@
+<!-- ═══════════════════════════════════════════════════
+     LOGOUT COMPONENT — Include in Admin Pages
+     ═══════════════════════════════════════════════════ -->
+
+<script>
+/**
+ * Add Logout Button to Topbar
+ * Call this function in admin pages after DOM is loaded
+ */
+function addLogoutButton() {
+    const topbar = document.querySelector('.topbar');
+    if (!topbar) return;
+    
+    // Check current user
+    fetchCurrentUser();
+    
+    // Create logout button container
+    const logoutContainer = document.createElement('div');
+    logoutContainer.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-left: auto;
+        padding-right: 20px;
+    `;
+    
+    // Create user info
+    const userInfo = document.createElement('div');
+    userInfo.id = 'userInfo';
+    userInfo.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        font-size: 12px;
+        color: var(--tx-mid);
+    `;
+    userInfo.innerHTML = `
+        <span id="userName">Loading...</span>
+        <span id="userRole" style="font-size: 10px; color: var(--tx-lo);"></span>
+    `;
+    
+    // Create logout button
+    const logoutBtn = document.createElement('button');
+    logoutBtn.textContent = '🚪 EXIT';
+    logoutBtn.style.cssText = `
+        padding: 8px 16px;
+        background: rgba(255, 61, 61, 0.1);
+        border: 1px solid rgba(255, 61, 61, 0.3);
+        color: var(--alert);
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        letter-spacing: 0.1em;
+        transition: all 0.3s ease;
+    `;
+    
+    logoutBtn.onmouseover = () => {
+        logoutBtn.style.background = 'rgba(255, 61, 61, 0.2)';
+        logoutBtn.style.borderColor = 'rgba(255, 61, 61, 0.5)';
+    };
+    
+    logoutBtn.onmouseout = () => {
+        logoutBtn.style.background = 'rgba(255, 61, 61, 0.1)';
+        logoutBtn.style.borderColor = 'rgba(255, 61, 61, 0.3)';
+    };
+    
+    logoutBtn.onclick = handleLogout;
+    
+    logoutContainer.appendChild(userInfo);
+    logoutContainer.appendChild(logoutBtn);
+    topbar.appendChild(logoutContainer);
+}
+
+/**
+ * Get Current User Info from Session
+ */
+async function fetchCurrentUser() {
+    try {
+        const response = await fetch('../api/get_user.php');
+        const result = await response.json();
+        
+        if (result.success && result.user) {
+            document.getElementById('userName').textContent = result.user.full_name || result.user.username;
+            document.getElementById('userRole').textContent = `[${result.user.role.toUpperCase()}]`;
+        } else {
+            // Not logged in, redirect to login
+            window.location.href = '../login.html';
+        }
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        window.location.href = '../login.html';
+    }
+}
+
+/**
+ * Handle Logout
+ */
+async function handleLogout() {
+    if (!confirm('ต้องการออกจากระบบหรือไม่?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('../api/logout.php', { method: 'POST' });
+        const result = await response.json();
+        
+        if (result.success) {
+            // Clear notifications
+            localStorage.removeItem('aquaos_api_base');
+            // Redirect to login
+            window.location.href = '../login.html';
+        }
+    } catch (error) {
+        console.error('Logout error:', error);
+        window.location.href = '../login.html';
+    }
+}
+
+// Auto add logout button on page load
+window.addEventListener('load', addLogoutButton);
+</script>

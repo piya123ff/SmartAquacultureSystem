@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaOS Pro — Summary Report</title>
+<script>
+// ── Auth Guard ──
+(function() {
+  var token = sessionStorage.getItem('aquaos_token');
+  var user  = sessionStorage.getItem('aquaos_user');
+  if (!token || !user) {
+    window.location.replace('login.html');
+  }
+})();
+</script>
+<link rel="stylesheet" href="../static/style.css">
+<style>
+/* ═══════════════════════════════════════════════════
+   REPORT PAGE — LOCAL OVERRIDES
+   ═══════════════════════════════════════════════════ */
+
+.rp-period-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  background: var(--bg-card);
+  border: 1px solid var(--bdr-bright);
+  border-radius: var(--radius-md);
+  padding: 10px var(--sp-5);
+  margin-bottom: var(--sp-5);
+  flex-wrap: wrap;
+}
+.rp-period-bar .lbl {
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.1em;
+}
+.rp-period-btn {
+  font-family: var(--f-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--bdr-bright);
+  background: transparent;
+  color: var(--tx-mid);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rp-period-btn:hover { color: var(--tx-hi); border-color: var(--cyan-bdr); }
+.rp-period-btn.active {
+  background: var(--cyan-dim);
+  border-color: var(--cyan-bdr);
+  color: var(--cyan);
+}
+.rp-reload-btn {
+  margin-left: auto;
+  font-family: var(--f-mono);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  padding: 6px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--ok-bdr);
+  background: var(--ok-bg);
+  color: var(--ok);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.rp-reload-btn:hover { background: rgba(0,232,124,0.18); }
+
+/* ── KPI cards ── */
+.rp-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+.rp-kpi {
+  background: var(--bg-card);
+  border: 1px solid var(--bdr-bright);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4) var(--sp-5);
+  position: relative;
+  overflow: hidden;
+}
+.rp-kpi::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--cyan);
+}
+.rp-kpi.ok::before    { background: var(--ok); }
+.rp-kpi.warn::before  { background: var(--warn); }
+.rp-kpi.alert::before { background: var(--alert); }
+
+.rp-kpi-lbl {
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.rp-kpi-val {
+  font-family: var(--f-ui);
+  font-weight: 700;
+  font-size: 2.1rem;
+  color: var(--tx-bright);
+  line-height: 1.1;
+}
+.rp-kpi-sub {
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  color: var(--tx-mid);
+  letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+
+/* ── Grid layout for 2 charts side-by-side ── */
+.rp-chart-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+@media (max-width: 900px) {
+  .rp-chart-grid { grid-template-columns: 1fr; }
+}
+
+.rp-chart-box {
+  background: var(--bg-card);
+  border: 1px solid var(--bdr-bright);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.rp-chart-head {
+  padding: var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--bdr);
+  background: var(--bg-inset);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.rp-chart-title {
+  font-family: var(--f-ui);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--tx-bright);
+}
+.rp-chart-sub {
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.08em;
+}
+.rp-chart-body {
+  padding: var(--sp-4) var(--sp-5);
+}
+
+canvas.rp-canvas {
+  display: block;
+  width: 100%;
+  height: 260px;
+}
+
+/* ── Tank comparison table ── */
+.rp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--f-mono);
+  font-size: 0.8rem;
+}
+.rp-table th {
+  text-align: left;
+  padding: 10px 12px;
+  background: var(--bg-inset);
+  border-bottom: 1px solid var(--bdr-bright);
+  color: var(--tx-lo);
+  font-weight: 400;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.rp-table td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--bdr);
+  color: var(--tx-hi);
+}
+.rp-table tbody tr:hover { background: rgba(0,200,255,0.03); }
+.rp-table tbody tr:last-child td { border-bottom: none; }
+.rp-tank-name { color: var(--tx-bright); font-weight: 400; }
+.rp-num-ok    { color: var(--ok); }
+.rp-num-warn  { color: var(--warn); }
+.rp-num-alert { color: var(--alert); }
+
+/* ── Feeding ratio donut ── */
+.rp-donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  padding: var(--sp-3) 0;
+}
+.rp-donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  flex: 1;
+}
+.rp-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-family: var(--f-mono);
+  font-size: 0.82rem;
+  color: var(--tx-mid);
+}
+.rp-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.rp-legend-val {
+  margin-left: auto;
+  color: var(--tx-bright);
+  font-weight: 700;
+}
+
+/* ── Loading overlay ── */
+.rp-loading {
+  display: none;
+  padding: var(--sp-8);
+  text-align: center;
+  font-family: var(--f-mono);
+  font-size: 0.8rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.1em;
+}
+.rp-loading.show { display: block; }
+</style>
+</head>
+<body>
+
+<!-- ── TOPBAR (เหมือนทุกหน้า) ── -->
+<header class="topbar">
+  <a href="index.html" class="tb-logo">
+    <svg class="logo-svg" viewBox="0 0 38 38" fill="none">
+      <rect x="1.5" y="1.5" width="35" height="35" rx="3" stroke="#00c8ff" stroke-width="1.2"/>
+      <path d="M6 26 Q11 18 16 22 Q21 26 26 18 Q31 11 34 15" stroke="#00c8ff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <circle cx="9"  cy="21" r="2" fill="#00e87c"/>
+      <circle cx="19" cy="24" r="2" fill="#00c8ff"/>
+      <circle cx="28" cy="16" r="2" fill="#ffa726"/>
+      <path d="M14 12 L14 7 L24 7 L24 12" stroke="#00c8ff" stroke-width="1.2" fill="none"/>
+      <path d="M19 7 L19 4" stroke="#00c8ff" stroke-width="1.2"/>
+    </svg>
+    <div class="tb-logo-text">
+      <div class="logo-name">AQUAOS</div>
+      <div class="logo-sub">SMART AQUACULTURE CONTROL</div>
+    </div>
+  </a>
+  <nav class="tb-nav">
+    <a href="index.html">DASHBOARD</a>
+    <a href="history.html">HISTORY</a>
+    <a href="alert_log.html">ALERTS</a>
+    <a href="report.html" class="active">REPORT</a>
+    <a href="settings.html">SETTINGS</a>
+    <a href="simulator.html">SIMULATOR</a>
+    <a href="device_health.html">DEVICE HEALTH</a>
+  </nav>
+</header>
+
+<main class="main">
+  <!-- Page header -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">รายงานสรุปภาพรวม</div>
+      <div class="page-subtitle">SUMMARY REPORT — ALL TANKS</div>
+    </div>
+  </div>
+
+  <!-- Period selector -->
+  <div class="rp-period-bar">
+    <span class="lbl">ช่วงเวลา :</span>
+    <button class="rp-period-btn"         data-period="today">วันนี้</button>
+    <button class="rp-period-btn active"  data-period="7d">7 วัน</button>
+    <button class="rp-period-btn"         data-period="30d">30 วัน</button>
+    <button class="rp-reload-btn" onclick="loadReport()">⟳ โหลดข้อมูลใหม่</button>
+  </div>
+
+  <!-- Loading state -->
+  <div class="rp-loading" id="loading">⟳ กำลังโหลดข้อมูล...</div>
+
+  <!-- KPI cards -->
+  <div class="section-head">
+    <span class="section-title">OVERVIEW</span>
+    <span class="section-line"></span>
+  </div>
+  <div class="rp-kpi-grid" id="kpi-grid">
+    <div class="rp-kpi">
+      <div class="rp-kpi-lbl">ตู้ทั้งหมด</div>
+      <div class="rp-kpi-val" id="kpi-total-tanks">—</div>
+      <div class="rp-kpi-sub">TOTAL TANKS</div>
+    </div>
+    <div class="rp-kpi ok">
+      <div class="rp-kpi-lbl">ตู้ Online</div>
+      <div class="rp-kpi-val" id="kpi-online">—</div>
+      <div class="rp-kpi-sub">ACTIVE NOW</div>
+    </div>
+    <div class="rp-kpi alert">
+      <div class="rp-kpi-lbl">การแจ้งเตือน</div>
+      <div class="rp-kpi-val" id="kpi-alerts">—</div>
+      <div class="rp-kpi-sub" id="kpi-alerts-sub">IN PERIOD</div>
+    </div>
+    <div class="rp-kpi warn">
+      <div class="rp-kpi-lbl">การให้อาหาร</div>
+      <div class="rp-kpi-val" id="kpi-feeds">—</div>
+      <div class="rp-kpi-sub" id="kpi-feeds-sub">EVENTS</div>
+    </div>
+    <div class="rp-kpi">
+      <div class="rp-kpi-lbl">ข้อมูล sensor</div>
+      <div class="rp-kpi-val" id="kpi-samples">—</div>
+      <div class="rp-kpi-sub">SAMPLES</div>
+    </div>
+  </div>
+
+  <!-- Chart row 1: Temperature comparison + Alert severity -->
+  <div class="section-head">
+    <span class="section-title">CHARTS</span>
+    <span class="section-line"></span>
+  </div>
+  <div class="rp-chart-grid">
+    <div class="rp-chart-box">
+      <div class="rp-chart-head">
+        <div>
+          <div class="rp-chart-title">อุณหภูมิเฉลี่ยแต่ละตู้</div>
+          <div class="rp-chart-sub">AVERAGE TEMPERATURE PER TANK (°C)</div>
+        </div>
+      </div>
+      <div class="rp-chart-body">
+        <canvas id="chart-temp" class="rp-canvas"></canvas>
+      </div>
+    </div>
+    <div class="rp-chart-box">
+      <div class="rp-chart-head">
+        <div>
+          <div class="rp-chart-title">การแจ้งเตือน</div>
+          <div class="rp-chart-sub">ALERTS BY SEVERITY</div>
+        </div>
+      </div>
+      <div class="rp-chart-body">
+        <div class="rp-donut-wrap">
+          <canvas id="chart-severity" width="140" height="140" style="flex-shrink:0;"></canvas>
+          <div class="rp-donut-legend" id="severity-legend"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart row 2: Feeding auto vs manual -->
+  <div class="rp-chart-box" style="margin-bottom:var(--sp-4);">
+    <div class="rp-chart-head">
+      <div>
+        <div class="rp-chart-title">สัดส่วนการให้อาหาร</div>
+        <div class="rp-chart-sub">FEEDING — AUTO vs MANUAL</div>
+      </div>
+    </div>
+    <div class="rp-chart-body">
+      <div class="rp-donut-wrap" style="gap:var(--sp-8);">
+        <canvas id="chart-feeding" width="140" height="140" style="flex-shrink:0;"></canvas>
+        <div class="rp-donut-legend" id="feeding-legend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detailed tank table -->
+  <div class="section-head">
+    <span class="section-title">TANK DETAIL</span>
+    <span class="section-line"></span>
+  </div>
+  <div class="rp-chart-box">
+    <div class="rp-chart-head">
+      <div>
+        <div class="rp-chart-title">ตารางสรุปแต่ละตู้</div>
+        <div class="rp-chart-sub">PER-TANK BREAKDOWN</div>
+      </div>
+    </div>
+    <table class="rp-table" id="tank-table">
+      <thead>
+        <tr>
+          <th>ตู้</th>
+          <th>ชนิดปลา</th>
+          <th>อุณหภูมิ (avg/min/max)</th>
+          <th>pH (avg)</th>
+          <th>ความขุ่น (avg)</th>
+          <th>Samples</th>
+          <th>Alerts</th>
+        </tr>
+      </thead>
+      <tbody id="tank-tbody">
+        <tr><td colspan="7" style="text-align:center;color:var(--tx-lo);padding:30px;">— กำลังโหลด —</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<footer class="statusbar">
+  <div class="sb-item"><div class="sb-dot" style="background:var(--ok);"></div><span>SYSTEM ONLINE</span></div>
+  <div class="sb-item" id="sb-page-info">REPORT</div>
+  <div class="sb-item">VER 2.2.0</div>
+  <div class="sb-right" id="sb-time">—</div>
+</footer>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   REPORT ENGINE — ใช้ API เดิม ไม่แตะ DB
+═══════════════════════════════════════════════════ */
+
+const API_BASE = localStorage.getItem('aquaos_api_base') || '../api';
+const COLORS = {
+  cyan:   '#00c8ff',
+  ok:     '#00e87c',
+  warn:   '#ffa726',
+  alert:  '#ff3d3d',
+  muted:  '#2a4a64',
+  bdr:    '#1a3a58',
+  text:   '#6a9ec0',
+};
+
+let currentPeriod = '7d';
+
+/* ── Clock ── */
+function tickClock() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  document.getElementById('sb-time').textContent =
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+/* ── Period switcher ── */
+document.querySelectorAll('.rp-period-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.rp-period-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPeriod = btn.dataset.period;
+    loadReport();
+  });
+});
+
+/* ── Main load ── */
+async function loadReport() {
+  document.getElementById('loading').classList.add('show');
+  try {
+    // Fetch 3 APIs in parallel
+    const [statsRes, latestRes, eventsRes] = await Promise.all([
+      fetch(`${API_BASE}/get_stats.php?all_tanks=1&period=${currentPeriod}`).then(r => r.json()),
+      fetch(`${API_BASE}/get_latest.php`).then(r => r.json()),
+      fetch(`${API_BASE}/get_events.php?limit=500&hours=${periodHours(currentPeriod)}`).then(r => r.json()),
+    ]);
+
+    renderKPI(statsRes, latestRes, eventsRes);
+    renderTempChart(statsRes.data || []);
+    renderSeverity(eventsRes.stats?.by_severity || {});
+    renderFeeding(eventsRes.events || []);
+    renderTable(statsRes.data || []);
+  } catch (e) {
+    console.error('Report load error:', e);
+    alert('โหลดข้อมูลไม่สำเร็จ: ' + e.message);
+  } finally {
+    document.getElementById('loading').classList.remove('show');
+  }
+}
+
+function periodHours(p) {
+  if (p === 'today') return 24;
+  if (p === '7d')    return 24 * 7;
+  if (p === '30d')   return 24 * 30;
+  return 24 * 7;
+}
+
+/* ── KPI ── */
+function renderKPI(stats, latest, events) {
+  const data = stats.data || [];
+  const tanks = latest.data || [];
+  const onlineCount = tanks.filter(t => t.status === 'online').length;
+  const totalSamples = data.reduce((s, t) => s + (t.sample_count || 0), 0);
+  const totalAlerts  = data.reduce((s, t) => s + (t.alert_count  || 0), 0);
+  const feedCount    = (events.events || []).filter(e => e.event_type === 'feeding_done').length;
+
+  const periodLabel = { today: '24 ชั่วโมง', '7d': '7 วัน', '30d': '30 วัน' }[currentPeriod] || '';
+
+  document.getElementById('kpi-total-tanks').textContent = tanks.length;
+  document.getElementById('kpi-online').textContent      = `${onlineCount}/${tanks.length}`;
+  document.getElementById('kpi-alerts').textContent      = totalAlerts;
+  document.getElementById('kpi-alerts-sub').textContent  = `ใน ${periodLabel}`;
+  document.getElementById('kpi-feeds').textContent       = feedCount;
+  document.getElementById('kpi-feeds-sub').textContent   = `ใน ${periodLabel}`;
+  document.getElementById('kpi-samples').textContent     = totalSamples.toLocaleString();
+}
+
+/* ── Temperature bar chart ── */
+function renderTempChart(tanks) {
+  const canvas = document.getElementById('chart-temp');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.clientWidth;
+  const H = canvas.clientHeight;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  if (!tanks.length) {
+    ctx.fillStyle = COLORS.text;
+    ctx.font = '12px "Share Tech Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText('ไม่มีข้อมูล', W / 2, H / 2);
+    return;
+  }
+
+  const values = tanks.map(t => t.temperature?.avg || 0);
+  const max = Math.max(...values, 35);
+  const min = Math.min(...values.filter(v => v > 0), 20);
+  const pad = { l: 40, r: 20, t: 20, b: 50 };
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+  const barW = cw / tanks.length * 0.6;
+  const gap  = cw / tanks.length * 0.4;
+
+  // Grid lines
+  ctx.strokeStyle = COLORS.bdr;
+  ctx.lineWidth = 1;
+  ctx.fillStyle = COLORS.muted;
+  ctx.font = '10px "Share Tech Mono"';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (ch / 4) * i;
+    const val = (max - ((max - min) / 4) * i).toFixed(0);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y);
+    ctx.lineTo(W - pad.r, y);
+    ctx.stroke();
+    ctx.fillText(val + '°', pad.l - 6, y + 3);
+  }
+
+  // Bars
+  tanks.forEach((t, i) => {
+    const v = t.temperature?.avg || 0;
+    if (v <= 0) return;
+    const h = ((v - min) / (max - min)) * ch;
+    const x = pad.l + (cw / tanks.length) * i + gap / 2;
+    const y = pad.t + ch - h;
+
+    // Color by target range
+    const tgt  = t.target_temp || 28;
+    const diff = Math.abs(v - tgt);
+    let color = COLORS.ok;
+    if (diff > 3)      color = COLORS.alert;
+    else if (diff > 1.5) color = COLORS.warn;
+
+    // Bar fill (gradient)
+    const grad = ctx.createLinearGradient(0, y, 0, y + h);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, color + '44');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, barW, h);
+
+    // Value on top
+    ctx.fillStyle = COLORS.text;
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 11px "Share Tech Mono"';
+    ctx.fillText(v.toFixed(1), x + barW / 2, y - 6);
+
+    // Label bottom
+    ctx.fillStyle = COLORS.text;
+    ctx.font = '10px "Share Tech Mono"';
+    const label = (t.tank_name || '').split(' ')[0] + ' ' + ((t.tank_name || '').split(' ')[1] || '');
+    ctx.fillText(label, x + barW / 2, pad.t + ch + 16);
+    ctx.fillStyle = COLORS.muted;
+    ctx.font = '9px "Share Tech Mono"';
+    ctx.fillText(t.species || '', x + barW / 2, pad.t + ch + 30);
+  });
+}
+
+/* ── Severity donut ── */
+function renderSeverity(bySev) {
+  const items = [
+    { key: 'critical', label: 'Critical', color: COLORS.alert },
+    { key: 'warning',  label: 'Warning',  color: COLORS.warn  },
+    { key: 'info',     label: 'Info',     color: COLORS.ok    },
+  ];
+  const total = items.reduce((s, it) => s + (bySev[it.key] || 0), 0);
+  drawDonut('chart-severity', items.map(it => ({ value: bySev[it.key] || 0, color: it.color })));
+
+  const legend = document.getElementById('severity-legend');
+  legend.innerHTML = items.map(it => {
+    const n = bySev[it.key] || 0;
+    const pct = total ? ((n / total) * 100).toFixed(0) : 0;
+    return `
+      <div class="rp-legend-item">
+        <span class="rp-legend-swatch" style="background:${it.color};"></span>
+        <span>${it.label}</span>
+        <span class="rp-legend-val">${n} <span style="color:var(--tx-lo);font-weight:400;">(${pct}%)</span></span>
+      </div>
+    `;
+  }).join('');
+  if (total === 0) {
+    legend.innerHTML += `<div style="color:var(--tx-lo);font-size:0.75rem;margin-top:6px;">— ยังไม่มีการแจ้งเตือน —</div>`;
+  }
+}
+
+/* ── Feeding auto vs manual donut ── */
+function renderFeeding(events) {
+  const feeds = events.filter(e => e.event_type === 'feeding_done');
+  let auto = 0, manual = 0, unknown = 0;
+  feeds.forEach(e => {
+    // จาก detail ดูว่า auto/manual (หรือถ้าไม่มี field ให้เดา)
+    const d = (e.detail || '').toLowerCase();
+    if (d.includes('auto') || d.includes('อัตโนมัติ')) auto++;
+    else if (d.includes('manual') || d.includes('เพิ่มเติม')) manual++;
+    else unknown++;
+  });
+  const total = auto + manual + unknown;
+
+  const items = [
+    { label: 'อัตโนมัติ', value: auto,    color: COLORS.cyan },
+    { label: 'ด้วยตนเอง', value: manual, color: COLORS.warn  },
+  ];
+  if (unknown > 0) items.push({ label: 'ไม่ระบุ', value: unknown, color: COLORS.muted });
+
+  drawDonut('chart-feeding', items.map(it => ({ value: it.value, color: it.color })));
+
+  const legend = document.getElementById('feeding-legend');
+  legend.innerHTML = items.map(it => {
+    const pct = total ? ((it.value / total) * 100).toFixed(0) : 0;
+    return `
+      <div class="rp-legend-item">
+        <span class="rp-legend-swatch" style="background:${it.color};"></span>
+        <span>${it.label}</span>
+        <span class="rp-legend-val">${it.value} <span style="color:var(--tx-lo);font-weight:400;">(${pct}%)</span></span>
+      </div>
+    `;
+  }).join('');
+  if (total === 0) {
+    legend.innerHTML = `<div style="color:var(--tx-lo);font-size:0.82rem;">— ยังไม่มีการให้อาหารในช่วงนี้ —</div>`;
+  }
+}
+
+/* ── Generic donut drawer ── */
+function drawDonut(canvasId, segments) {
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.width = 140 * dpr;
+  const H = canvas.height = 140 * dpr;
+  canvas.style.width  = '140px';
+  canvas.style.height = '140px';
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, 140, 140);
+
+  const cx = 70, cy = 70, r = 55, thickness = 18;
+  const total = segments.reduce((s, seg) => s + seg.value, 0);
+
+  if (total === 0) {
+    ctx.strokeStyle = COLORS.bdr;
+    ctx.lineWidth = thickness;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = COLORS.muted;
+    ctx.font = '11px "Share Tech Mono"';
+    ctx.textAlign = 'center';
+    ctx.fillText('N/A', cx, cy + 4);
+    return;
+  }
+
+  let angle = -Math.PI / 2;
+  segments.forEach(seg => {
+    if (seg.value === 0) return;
+    const sweep = (seg.value / total) * Math.PI * 2;
+    ctx.strokeStyle = seg.color;
+    ctx.lineWidth = thickness;
+    ctx.lineCap = 'butt';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, angle, angle + sweep);
+    ctx.stroke();
+    angle += sweep;
+  });
+
+  // Center number
+  ctx.fillStyle = COLORS.text;
+  ctx.font = 'bold 22px "Exo 2"';
+  ctx.textAlign = 'center';
+  ctx.fillText(total, cx, cy + 2);
+  ctx.fillStyle = COLORS.muted;
+  ctx.font = '9px "Share Tech Mono"';
+  ctx.fillText('TOTAL', cx, cy + 18);
+}
+
+/* ── Tank table ── */
+function renderTable(tanks) {
+  const tbody = document.getElementById('tank-tbody');
+  if (!tanks.length) {
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--tx-lo);padding:30px;">— ไม่มีข้อมูล —</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = tanks.map(t => {
+    const tmp = t.temperature || {};
+    const ph  = t.ph_level    || {};
+    const tur = t.turbidity   || {};
+    const alerts = t.alert_count || 0;
+
+    let aClass = 'rp-num-ok';
+    if (alerts > 10)     aClass = 'rp-num-alert';
+    else if (alerts > 3) aClass = 'rp-num-warn';
+
+    return `
+      <tr>
+        <td class="rp-tank-name">${escape(t.tank_name || '—')}</td>
+        <td>${escape(t.species || '—')}</td>
+        <td>
+          <span class="rp-num-ok">${fmt(tmp.avg)}°</span>
+          <span style="color:var(--tx-lo);">/ ${fmt(tmp.min)}° / ${fmt(tmp.max)}°</span>
+        </td>
+        <td>${fmt(ph.avg, 2)}</td>
+        <td>${fmt(tur.avg)} NTU</td>
+        <td>${(t.sample_count || 0).toLocaleString()}</td>
+        <td class="${aClass}">${alerts}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function fmt(v, dp = 1) {
+  if (v == null || isNaN(v) || v === 0) return '—';
+  return Number(v).toFixed(dp);
+}
+function escape(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/* ── Init ── */
+loadReport();
+
+// Redraw charts on resize
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(loadReport, 300);
+});
+</script>
+</body>
+</html>

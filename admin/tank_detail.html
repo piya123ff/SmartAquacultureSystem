@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaOS Pro — Tank Detail</title>
+<link rel="stylesheet" href="../static/style.css">
+<style>
+/* Manual Feed Button */
+.feed-btn-wrap { display:flex; gap:8px; margin-bottom:12px; }
+.feed-now-btn {
+  flex:1; font-family:var(--f-mono); font-size:0.82rem; letter-spacing:0.08em;
+  padding:10px 14px; border-radius:var(--radius-sm);
+  border:1px solid var(--warn-bdr); background:var(--warn-bg); color:var(--warn);
+  cursor:pointer; transition:background 0.15s;
+}
+.feed-now-btn:hover { background:rgba(255,167,38,0.18); }
+.feed-now-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+/* Feed Modal */
+.feed-modal-bg {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7);
+  z-index:9999; align-items:center; justify-content:center;
+}
+.feed-modal-bg.show { display:flex; }
+.feed-modal {
+  background:var(--bg-card); border:1px solid var(--cyan-bdr);
+  border-radius:var(--radius-lg); padding:24px; min-width:340px; max-width:420px;
+}
+.feed-modal h3 {
+  font-family:var(--f-ui); font-size:1.1rem; color:var(--tx-bright);
+  margin-bottom:6px;
+}
+.feed-modal .sub {
+  font-family:var(--f-mono); font-size:0.72rem; color:var(--tx-lo);
+  letter-spacing:0.1em; margin-bottom:18px;
+}
+.feed-modal label {
+  display:block; font-family:var(--f-mono); font-size:0.72rem;
+  color:var(--tx-mid); letter-spacing:0.08em; margin-bottom:6px;
+}
+.feed-modal input {
+  width:100%; font-family:var(--f-mono); font-size:1.1rem;
+  background:var(--bg-inset); border:1px solid var(--bdr-bright); color:var(--tx-hi);
+  padding:10px 12px; border-radius:var(--radius-sm); outline:none;
+  margin-bottom:16px;
+}
+.feed-modal input:focus { border-color:var(--cyan); }
+.feed-modal-actions { display:flex; gap:10px; }
+.feed-modal button {
+  flex:1; font-family:var(--f-mono); font-size:0.82rem; letter-spacing:0.08em;
+  padding:10px; border-radius:var(--radius-sm); cursor:pointer;
+}
+.feed-btn-confirm { border:1px solid var(--ok-bdr); background:var(--ok-bg); color:var(--ok); }
+.feed-btn-confirm:hover { background:rgba(0,232,124,0.2); }
+.feed-btn-cancel  { border:1px solid var(--bdr-bright); background:transparent; color:var(--tx-mid); }
+.feed-btn-cancel:hover { color:var(--tx-hi); }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a href="index.html" class="tb-logo">
+    <svg class="logo-svg" viewBox="0 0 38 38" fill="none">
+      <rect x="1.5" y="1.5" width="35" height="35" rx="3" stroke="#00c8ff" stroke-width="1.2"/>
+      <path d="M6 26 Q11 18 16 22 Q21 26 26 18 Q31 11 34 15" stroke="#00c8ff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <circle cx="9"  cy="21" r="2" fill="#00e87c"/>
+      <circle cx="19" cy="24" r="2" fill="#00c8ff"/>
+      <circle cx="28" cy="16" r="2" fill="#ffa726"/>
+      <path d="M14 12 L14 7 L24 7 L24 12" stroke="#00c8ff" stroke-width="1.2" fill="none"/>
+      <path d="M19 7 L19 4" stroke="#00c8ff" stroke-width="1.2"/>
+    </svg>
+    <div class="tb-logo-text">
+      <div class="logo-name">AQUAOS</div>
+      <div class="logo-sub">SMART AQUACULTURE CONTROL</div>
+    </div>
+  </a>
+
+  <nav class="tb-nav">
+    <a href="index.html">DASHBOARD</a>
+    <a href="history.html">HISTORY</a>
+    <a href="alert_log.html">ALERTS</a>
+    <a href="report.html">REPORT</a>
+    <a href="settings.html">SETTINGS</a>
+    <a href="simulator.html">SIMULATOR</a>
+    <a href="device_health.html">DEVICE HEALTH</a>
+  </nav>
+
+  <div class="tb-stats">
+    <div class="tb-stat">
+      <span class="tb-stat-label">TANK</span>
+      <span class="tb-stat-val text-cyan" id="tb-tank-name">—</span>
+    </div>
+    <div class="tb-stat">
+      <span class="tb-stat-label">SCORE</span>
+      <span class="tb-stat-val" id="hdr-score">—</span>
+    </div>
+    <div class="tb-sync">
+      <div class="sync-dot" id="sync-dot"></div>
+      <div class="flex-col" style="align-items:flex-start;">
+        <span class="sync-label" id="sync-label">LIVE</span>
+        <span class="sync-time" id="sync-time">—</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- HERO -->
+  <div class="detail-header">
+    <div class="tank-hero">
+      <div class="tank-hero-id" id="hero-id">01</div>
+      <div class="tank-hero-info">
+        <div class="tank-hero-name" id="hero-name">Loading...</div>
+        <div class="tank-hero-meta">
+          <span>SPECIES: <span class="text-hi" id="hero-species">—</span></span>
+          <span>DEVICE: <span class="text-hi" id="hero-device">—</span></span>
+          <span>ZONE: <span class="text-hi" id="hero-zone">—</span></span>
+          <span>UPDATED: <span class="text-hi" id="hero-ts">—</span></span>
+        </div>
+      </div>
+      <span class="tank-hero-badge badge-normal" id="hero-badge">NORMAL</span>
+    </div>
+    <div class="score-card-detail">
+      <span class="score-label-d">WATER QUALITY SCORE</span>
+      <div class="score-wrap-d">
+        <canvas id="score-canvas" width="160" height="100"></canvas>
+        <div class="score-num-d">
+          <div class="score-num-val-d text-ok" id="score-val">—</div>
+          <div class="score-num-unit-d">/ 100</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- METRIC GRID -->
+  <div class="metric-grid-d">
+    <div class="metric-big" id="mb-temp"><div class="metric-big-label">TEMPERATURE</div><div class="metric-big-val" id="mb-temp-val">—</div><div class="metric-big-unit">°C</div><div class="metric-big-bar"><div class="metric-big-bar-fill" id="mb-temp-bar" style="width:0%;background:var(--cyan)"></div></div></div>
+    <div class="metric-big" id="mb-ph"><div class="metric-big-label">PH LEVEL</div><div class="metric-big-val" id="mb-ph-val">—</div><div class="metric-big-unit">pH</div><div class="metric-big-bar"><div class="metric-big-bar-fill" id="mb-ph-bar" style="width:0%;background:var(--ok)"></div></div></div>
+    <div class="metric-big" id="mb-turb"><div class="metric-big-label">TURBIDITY</div><div class="metric-big-val" id="mb-turb-val">—</div><div class="metric-big-unit">NTU</div><div class="metric-big-bar"><div class="metric-big-bar-fill" id="mb-turb-bar" style="width:0%;background:var(--warn)"></div></div></div>
+    <div class="metric-big" id="mb-water"><div class="metric-big-label">WATER LEVEL</div><div class="metric-big-val" id="mb-water-val">—</div><div class="metric-big-unit">%</div><div class="metric-big-bar"><div class="metric-big-bar-fill" id="mb-water-bar" style="width:0%;background:var(--cyan)"></div></div></div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-grid-d">
+    <div class="chart-panel-d">
+      <div class="chart-panel-head-d">
+        <span class="chart-panel-title-d">TEMPERATURE TREND</span>
+        <div class="period-tabs" id="period-tabs">
+          <button class="period-tab" onclick="setPeriod('1h')">1H</button>
+          <button class="period-tab active" onclick="setPeriod('6h')">6H</button>
+          <button class="period-tab" onclick="setPeriod('24h')">24H</button>
+        </div>
+        <span class="chart-panel-stat-d" id="chart-temp-stat">—</span>
+      </div>
+      <canvas class="chart-cv" id="cv-temp"></canvas>
+    </div>
+    <div class="chart-panel-d">
+      <div class="chart-panel-head-d"><span class="chart-panel-title-d">PH LEVEL TREND</span><span class="chart-panel-stat-d" id="chart-ph-stat">—</span></div>
+      <canvas class="chart-cv" id="cv-ph"></canvas>
+    </div>
+    <div class="chart-panel-d">
+      <div class="chart-panel-head-d"><span class="chart-panel-title-d">TURBIDITY</span><span class="chart-panel-stat-d" id="chart-turb-stat">—</span></div>
+      <canvas class="chart-cv" id="cv-turb"></canvas>
+    </div>
+    <div class="chart-panel-d">
+      <div class="chart-panel-head-d"><span class="chart-panel-title-d">WATER LEVEL</span><span class="chart-panel-stat-d" id="chart-water-stat">—</span></div>
+      <canvas class="chart-cv" id="cv-water"></canvas>
+    </div>
+  </div>
+
+  <!-- BOTTOM -->
+  <div class="bottom-grid-d">
+    <div class="settings-panel-d">
+      <div class="panel-head-d"><span class="panel-title-d">SETTINGS SUMMARY</span></div>
+      <div class="settings-inner-grid">
+        <div class="setting-item"><div class="setting-item-label">TARGET TEMP</div><div class="setting-item-val" id="s-target">—°C</div></div>
+        <div class="setting-item"><div class="setting-item-label">TEMP RANGE</div><div class="setting-item-val" id="s-range">—</div></div>
+        <div class="setting-item"><div class="setting-item-label">TRIGGER pH</div><div class="setting-item-val" id="s-ph">—</div></div>
+        <div class="setting-item"><div class="setting-item-label">TRIGGER TURBIDITY</div><div class="setting-item-val" id="s-turb">— NTU</div></div>
+        <div class="setting-item"><div class="setting-item-label">FEEDING TIME</div><div class="setting-item-val" id="s-feed-time">—</div></div>
+        <div class="setting-item"><div class="setting-item-label">AUTO FEED</div><div class="setting-item-val" id="s-auto-feed">—</div></div>
+      </div>
+    </div>
+    <div class="event-panel-d">
+      <div class="panel-head-d"><span class="panel-title-d">RECENT EVENTS</span></div>
+      <div class="feed-btn-wrap" style="padding:10px 14px;">
+        <button class="feed-now-btn" id="feed-now-btn" onclick="openFeedModal()">✋ ให้อาหารเดี๋ยวนี้ (MANUAL)</button>
+      </div>
+      <div class="ev-list" id="ev-list">
+        <div class="ev-item"><span class="text-muted text-xs">Loading...</span></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast-container" id="toast-container"></div>
+
+<footer class="statusbar">
+  <div class="sb-item"><div class="sb-dot" id="sb-dot"></div><span id="sb-conn">SYSTEM ONLINE</span></div>
+  <div class="sb-item" id="sb-page-info"></div>
+  <div class="sb-item">VER 2.2.0</div>
+  <div class="sb-right" id="sb-time">—</div>
+</footer>
+
+<script>
+const params  = new URLSearchParams(location.search);
+const TANK_ID = parseInt(params.get('tank_id') || '1');
+const API_BASE= params.get('api') || '../api';
+const CFG = { LATEST_URL:`${API_BASE}/get_latest.php`, HISTORY_URL:`${API_BASE}/get_history.php`, EVENTS_URL:`${API_BASE}/get_events.php`, POLL_MS:3000, HIST_HOURS:6 };
+const STATE = { latest:null, history:[], events:[], settings:null, pollTimer:null };
+let isFetching = false;
+
+async function fetchAll(){
+  if(isFetching)return; isFetching=true;
+  try{
+    const[latRes,histRes,evRes]=await Promise.allSettled([fetch(`${CFG.LATEST_URL}?tank_id=${TANK_ID}`,{cache:'no-store'}).then(r=>r.json()),fetch(`${CFG.HISTORY_URL}?tank_id=${TANK_ID}&hours=${CFG.HIST_HOURS}&limit=200`,{cache:'no-store'}).then(r=>r.json()),fetch(`${CFG.EVENTS_URL}?tank_id=${TANK_ID}&limit=30`,{cache:'no-store'}).then(r=>r.json())]);
+    let useMock=false;
+    if(latRes.status==='fulfilled'&&latRes.value.success&&latRes.value.data?.length){const tank=latRes.value.data[0];STATE.latest=tank.latest_sensor;STATE.settings=tank.settings;renderHero(tank);}else useMock=true;
+    if(histRes.status==='fulfilled'&&histRes.value.success)STATE.history=histRes.value.logs||[];else STATE.history=generateMockHistory(100,CFG.HIST_HOURS);
+    if(evRes.status==='fulfilled'&&evRes.value.success)STATE.events=evRes.value.events||[];else STATE.events=[];
+    setSync(useMock?'error':'ok');
+    if(useMock&&!STATE.latest){STATE.latest=mockLatest();STATE.settings=mockSettings();renderHeroMock();}
+    renderAll();
+  }catch(e){setSync('error');STATE.latest=mockLatest();STATE.settings=mockSettings();STATE.history=generateMockHistory(100,CFG.HIST_HOURS);renderAll();}
+  finally{isFetching=false;}
+}
+function mockLatest(){return{temperature:27.5+(Math.random()-.5)*2,ph_level:7.2+(Math.random()-.5)*.4,turbidity:30+Math.random()*10,water_level:80+Math.random()*10,recorded_at:new Date().toISOString()};}
+function mockSettings(){return{target_temp:28,min_temp:24,max_temp:32,trigger_ph:8.5,trigger_turbidity:50,feeding_time:'08:00:00',feeding_amount:250,auto_feed_status:'on'};}
+function generateMockHistory(count,hours){const now=Date.now(),step=(hours*3600000)/count;return Array.from({length:count},(_,i)=>({recorded_at:new Date(now-(count-i)*step).toISOString().slice(0,19).replace('T',' '),temperature:27+Math.sin(i/10)*2+(Math.random()-.5)*.5,ph_level:7.2+Math.sin(i/15)*.3+(Math.random()-.5)*.1,turbidity:30+Math.sin(i/8)*8+Math.random()*3,water_level:80+Math.sin(i/20)*5+(Math.random()-.5)*2}));}
+function renderHeroMock(){setText('tb-tank-name',`TANK ${TANK_ID}`);setText('hero-id',String(TANK_ID).padStart(2,'0'));setText('hero-name',`Tank ${TANK_ID}`);setText('hero-species','—');}
+function renderHero(tank){
+  const spi=document.getElementById('sb-page-info');if(spi)spi.textContent='TANK '+TANK_ID;
+const name=tank.tank_name||`Tank ${TANK_ID}`;setText('tb-tank-name',name);setText('hero-id',String(TANK_ID).padStart(2,'0'));setText('hero-name',name);const s=tank.latest_sensor;if(s)setText('hero-ts',fmtDateTime(s.recorded_at));}
+function renderAll(){const s=STATE.latest,st=STATE.settings;if(!s)return;updateMetric('temp',s.temperature,st,'temp');updateMetric('ph',s.ph_level,st,'ph');updateMetric('turb',s.turbidity,st,'turb');updateMetric('water',s.water_level,st,'water');drawScoreGauge(calcScore(s,st));if(st){setText('s-target',`${st.target_temp?.toFixed(2)}°C`);setText('s-range',`${st.min_temp?.toFixed(1)} – ${st.max_temp?.toFixed(1)}°C`);setText('s-ph',st.trigger_ph?.toFixed(2));setText('s-turb',`${st.trigger_turbidity?.toFixed(1)} NTU`);setText('s-feed-time',st.feeding_time||'—');const afs=document.getElementById('s-auto-feed');if(afs){afs.textContent=(st.auto_feed_status||'—').toUpperCase();afs.style.color=st.auto_feed_status==='on'?'var(--ok)':'var(--tx-mid)';}}renderCharts();renderEvents();}
+function updateMetric(key,val,st,algo){const card=document.getElementById(`mb-${key}`),valEl=document.getElementById(`mb-${key}-val`),barEl=document.getElementById(`mb-${key}-bar`);if(!card||!valEl)return;if(valEl.textContent!==val.toFixed(2))valEl.textContent=val.toFixed(2);let state='ok',pct=50;const d={min_temp:24,max_temp:32,trigger_ph:8.5,trigger_turbidity:50};const mn=st?.min_temp??d.min_temp,mx=st?.max_temp??d.max_temp,tph=st?.trigger_ph??d.trigger_ph,tturb=st?.trigger_turbidity??d.trigger_turbidity;if(algo==='temp'){if(val>mx||val<mn)state='alert';else if(val>mx-2)state='warn';pct=Math.min(100,Math.max(0,((val-mn)/(mx-mn))*100));if(barEl)barEl.style.background=state==='alert'?'var(--alert)':state==='warn'?'var(--warn)':'var(--cyan)';}else if(algo==='ph'){if(val>tph)state='alert';else if(val<6)state='warn';pct=Math.min(100,(val/14)*100);if(barEl)barEl.style.background=state==='alert'?'var(--alert)':state==='warn'?'var(--warn)':'var(--ok)';}else if(algo==='turb'){if(val>tturb)state='alert';else if(val>tturb*.8)state='warn';pct=Math.min(100,(val/(tturb*1.5))*100);if(barEl)barEl.style.background=state==='alert'?'var(--alert)':state==='warn'?'var(--warn)':'var(--ok)';}else if(algo==='water'){if(val<30)state='alert';else if(val<50)state='warn';pct=Math.min(100,val);if(barEl)barEl.style.background=state==='alert'?'var(--alert)':state==='warn'?'var(--warn)':'var(--cyan)';}const cls=`metric-big state-${state}`;if(card.className!==cls)card.className=cls;if(barEl)barEl.style.width=`${pct.toFixed(1)}%`;}
+function calcScore(s,st){if(!s)return 0;const d={min_temp:24,max_temp:32,target_temp:28,trigger_ph:8.5,trigger_turbidity:50};const mn=st?.min_temp??d.min_temp,mx=st?.max_temp??d.max_temp,tgt=st?.target_temp??d.target_temp,tph=st?.trigger_ph??d.trigger_ph,tturb=st?.trigger_turbidity??d.trigger_turbidity;const tempScore=Math.max(0,100-(Math.abs(s.temperature-tgt)/((mx-mn)/2))*100);const phScore=s.ph_level<=tph?Math.min(100,100-Math.max(0,(s.ph_level-6)/(tph-6)-.7)*100/.3):0;const turbScore=s.turbidity<=tturb?Math.max(0,100-(s.turbidity/tturb)*100*.6):0;const waterScore=s.water_level>=80?100:s.water_level>=50?(s.water_level-50)/30*60+40:Math.max(0,s.water_level/50*40);return Math.min(100,Math.max(0,Math.round(tempScore*.35+phScore*.25+turbScore*.2+waterScore*.2)));}
+function drawScoreGauge(score){
+  const hs=document.getElementById('hdr-score');if(hs)hs.textContent=score;
+const cv=document.getElementById('score-canvas');if(!cv)return;const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,cx=W/2,cy=H-10,r=72;ctx.clearRect(0,0,W,H);ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0);ctx.strokeStyle='#112238';ctx.lineWidth=14;ctx.lineCap='round';ctx.stroke();const col=score>=80?'#00e87c':score>=60?'#ffa726':'#ff3d3d';ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,Math.PI+Math.PI*(score/100));ctx.strokeStyle=col;ctx.lineWidth=14;ctx.shadowBlur=12;ctx.shadowColor=col;ctx.stroke();ctx.shadowBlur=0;for(let i=0;i<=10;i++){const a=Math.PI+(Math.PI*i/10);ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*(r-9),cy+Math.sin(a)*(r-9));ctx.lineTo(cx+Math.cos(a)*(r+6),cy+Math.sin(a)*(r+6));ctx.strokeStyle=i%5===0?'#183450':'#0f1e30';ctx.lineWidth=i%5===0?2:1;ctx.stroke();}const valEl=document.getElementById('score-val');if(valEl){if(valEl.textContent!==String(score))valEl.textContent=score;valEl.style.color=col;}const badge=document.getElementById('hero-badge');if(badge){const level=score>=80?'normal':score>=60?'warning':'alert';const labels={normal:'GOOD',warning:'WARNING',alert:'CRITICAL'};badge.className=`tank-hero-badge badge-${level}`;badge.textContent=labels[level];}}
+
+const CHART_COLORS={temp:{line:'#00c8ff',fill:'rgba(0,200,255,0.08)',ref:'rgba(0,200,255,0.3)'},ph:{line:'#00e87c',fill:'rgba(0,232,124,0.08)',ref:'rgba(0,232,124,0.3)'},turb:{line:'#ffa726',fill:'rgba(255,167,38,0.08)',ref:'rgba(255,167,38,0.3)'},water:{line:'#00c8ff',fill:'rgba(0,200,255,0.08)',ref:null}};
+function renderCharts(){const logs=STATE.history;if(!logs.length)return;const keys=['temp','ph','turb','water'],fields={temp:'temperature',ph:'ph_level',turb:'turbidity',water:'water_level'},cvIds={temp:'cv-temp',ph:'cv-ph',turb:'cv-turb',water:'cv-water'},statIds={temp:'chart-temp-stat',ph:'chart-ph-stat',turb:'chart-turb-stat',water:'chart-water-stat'},units={temp:'°C',ph:'pH',turb:'NTU',water:'%'};const st=STATE.settings;
+keys.forEach(key=>{const cv=document.getElementById(cvIds[key]);if(!cv)return;const dpr=window.devicePixelRatio||1,rect=cv.getBoundingClientRect();cv.width=Math.round(rect.width*dpr);cv.height=Math.round(rect.height*dpr);const ctx=cv.getContext('2d');ctx.scale(dpr,dpr);const W=rect.width,H=rect.height,pad={t:16,r:16,b:28,l:50},iW=W-pad.l-pad.r,iH=H-pad.t-pad.b;const vals=logs.map(l=>parseFloat(l[fields[key]])||0);const minV=Math.min(...vals),maxV=Math.max(...vals),range=maxV-minV||1;ctx.clearRect(0,0,W,H);ctx.strokeStyle='#112238';ctx.lineWidth=1;for(let i=0;i<=4;i++){const y=pad.t+(iH/4)*i;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+iW,y);ctx.stroke();const lbl=(maxV-(range/4)*i).toFixed(1);ctx.fillStyle='#2a4a64';ctx.font=`10px 'Share Tech Mono'`;ctx.textAlign='right';ctx.fillText(lbl+units[key],pad.l-5,y+3);}
+let refVal=null;if(key==='temp'&&st?.target_temp)refVal=st.target_temp;if(key==='ph'&&st?.trigger_ph)refVal=st.trigger_ph;if(key==='turb'&&st?.trigger_turbidity)refVal=st.trigger_turbidity;if(refVal!==null){const ry=pad.t+iH-((refVal-minV)/range)*iH;if(ry>=pad.t&&ry<=pad.t+iH){ctx.setLineDash([4,4]);ctx.strokeStyle=CHART_COLORS[key].ref;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.l,ry);ctx.lineTo(pad.l+iW,ry);ctx.stroke();ctx.setLineDash([]);}}
+const grad=ctx.createLinearGradient(0,pad.t,0,pad.t+iH);grad.addColorStop(0,CHART_COLORS[key].fill.replace('0.08','0.2'));grad.addColorStop(1,'transparent');ctx.beginPath();vals.forEach((v,i)=>{const x=pad.l+(i/(vals.length-1))*iW,y=pad.t+iH-((v-minV)/range)*iH;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});ctx.lineTo(pad.l+iW,pad.t+iH);ctx.lineTo(pad.l,pad.t+iH);ctx.closePath();ctx.fillStyle=grad;ctx.fill();ctx.beginPath();vals.forEach((v,i)=>{const x=pad.l+(i/(vals.length-1))*iW,y=pad.t+iH-((v-minV)/range)*iH;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});ctx.strokeStyle=CHART_COLORS[key].line;ctx.lineWidth=1.5;ctx.lineJoin='round';ctx.stroke();
+const avg=vals.reduce((a,b)=>a+b,0)/vals.length;const stat=document.getElementById(statIds[key]);if(stat)stat.textContent=`AVG: ${avg.toFixed(2)}${units[key]}  MAX: ${maxV.toFixed(2)}`;});}
+
+function renderEvents(){const list=document.getElementById('ev-list');if(!list)return;const evs=STATE.events;if(!evs.length){list.innerHTML='<div class="ev-item"><span class="text-muted text-xs">ไม่มี event</span></div>';return;}const sevMap=e=>{const t=(e.event_type||'').toLowerCase();if(t.includes('alert_temp')||t.includes('alert_ph')||t.includes('alert_turb'))return'd-alert';if(t.includes('alert'))return'd-warn';if(t==='normal')return'd-ok';return'd-info';};list.innerHTML=evs.slice(0,20).map(e=>`<div class="ev-item"><span class="ev-dot ${sevMap(e)}"></span><div class="ev-body"><div class="ev-type-lbl">${escHtml((e.event_type||'').replace(/_/g,' ').toUpperCase())}</div><div class="ev-detail-txt">${escHtml(e.event_detail||'')}</div></div><span class="ev-time">${fmtRelTime(e.created_at)}</span></div>`).join('');}
+function setPeriod(p){const h={'1h':1,'6h':6,'24h':24};CFG.HIST_HOURS=h[p]||6;document.querySelectorAll('.period-tab').forEach((b,i)=>{b.classList.toggle('active',['1h','6h','24h'][i]===p);});fetchAll();}
+function setText(id,v){const el=document.getElementById(id);if(el&&el.textContent!==String(v))el.textContent=v;}
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtDateTime(s){try{return new Date(s.replace(' ','T')).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});}catch{return s;}}
+function fmtRelTime(s){const d=Date.now()-new Date(s.replace(' ','T')).getTime(),sec=Math.floor(d/1000);if(sec<60)return`${sec}s ago`;if(sec<3600)return`${Math.floor(sec/60)}m ago`;return`${Math.floor(sec/3600)}h ago`;}
+function setSync(state){const dot=document.getElementById('sync-dot'),lbl=document.getElementById('sync-label');if(!dot)return;if(state==='ok'){dot.className='sync-dot';if(lbl)lbl.textContent='LIVE';}else{dot.className='sync-dot error';if(lbl)lbl.textContent='MOCK';}}
+
+setInterval(()=>{
+  const e=document.getElementById('sb-time');if(e)e.textContent=new Date().toLocaleTimeString('th-TH',{hour12:false});
+},1000);
+async function init(){await fetchAll();STATE.pollTimer=setInterval(fetchAll,CFG.POLL_MS);window.addEventListener('resize',renderCharts);document.addEventListener('visibilitychange',()=>{if(document.hidden)clearInterval(STATE.pollTimer);else{fetchAll();STATE.pollTimer=setInterval(fetchAll,CFG.POLL_MS);}});}
+init();
+</script>
+<!-- Manual Feed Modal -->
+<div class="feed-modal-bg" id="feed-modal-bg">
+  <div class="feed-modal">
+    <h3>ให้อาหารแบบ Manual</h3>
+    <div class="sub">MANUAL FEEDING</div>
+    <label>ปริมาณอาหาร (กรัม)</label>
+    <input type="number" id="feed-amount-input" value="100" min="1" max="5000" step="10">
+    <div class="feed-modal-actions">
+      <button class="feed-btn-cancel"  onclick="closeFeedModal()">ยกเลิก</button>
+      <button class="feed-btn-confirm" id="feed-confirm-btn" onclick="submitFeed()">ยืนยันให้อาหาร</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openFeedModal() {
+  document.getElementById('feed-modal-bg').classList.add('show');
+  document.getElementById('feed-amount-input').focus();
+}
+function closeFeedModal() {
+  document.getElementById('feed-modal-bg').classList.remove('show');
+}
+async function submitFeed() {
+  const amount = parseFloat(document.getElementById('feed-amount-input').value);
+  if (!amount || amount <= 0) { alert('กรุณาระบุจำนวน'); return; }
+
+  const params  = new URLSearchParams(location.search);
+  const tank_id = parseInt(params.get('id') || '1');
+
+  const btn = document.getElementById('feed-confirm-btn');
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+
+  try {
+    const apiBase = localStorage.getItem('aquaos_api_base') || '../api';
+    const res = await fetch(apiBase + '/feed_now.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tank_id: tank_id, amount: amount }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      closeFeedModal();
+      alert('ให้อาหารสำเร็จ: ' + amount + 'g');
+      location.reload();
+    } else {
+      alert('ผิดพลาด: ' + (data.message || 'unknown'));
+    }
+  } catch (e) {
+    alert('เชื่อมต่อ API ไม่ได้: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'ยืนยันให้อาหาร';
+  }
+}
+// Close on backdrop click
+document.getElementById('feed-modal-bg').addEventListener('click', e => {
+  if (e.target.id === 'feed-modal-bg') closeFeedModal();
+});
+</script>
+</body>
+</html>

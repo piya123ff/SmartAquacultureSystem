@@ -1,0 +1,3080 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaOS Pro — Smart Aquaculture Control</title>
+<script>
+// ── Auth Guard: ถ้าไม่ได้ login ให้กลับไปหน้า login ──
+(function() {
+  var token = sessionStorage.getItem('aquaos_token');
+  var user  = sessionStorage.getItem('aquaos_user');
+  if (!token || !user) {
+    window.location.replace('login.html');
+  }
+})();
+</script>
+<link rel="stylesheet" href="../static/style.css">
+<style>
+/* ═══════════════════════════════════════════════════
+   AQUAOS — ENHANCED DASHBOARD OVERRIDES
+   ═══════════════════════════════════════════════════ */
+
+/* ── CCTV PANEL ── */
+.cctv-wrap {
+  position: relative;
+  height: 220px;
+  background: #020509;
+  overflow: hidden;
+  border-bottom: 1px solid var(--bdr);
+}
+.cctv-canvas { display: block; width: 100%; height: 100%; }
+
+/* Species label on CCTV */
+.cctv-species-tag {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(0,200,255,0.2);
+  border-radius: 20px;
+  padding: 3px 14px;
+  font-family: var(--f-mono);
+  font-size: 0.8rem;
+  color: rgba(180,230,255,0.7);
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Depth lines overlay */
+.cctv-depth-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg,
+      rgba(0,60,120,0.08) 0%,
+      transparent 35%,
+      rgba(0,20,50,0.15) 100%
+    );
+}
+
+/* ── CARD HEADER IMPROVEMENT ── */
+.card-head-tank {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--sp-4);
+  gap: var(--sp-2);
+}
+.tank-name {
+  font-family: var(--f-ui);
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--tx-bright);
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+.tank-meta {
+  font-family: var(--f-mono);
+  font-size: 0.75rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+
+/* ── METRICS GRID ── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: var(--sp-3);
+}
+.metric-cell {
+  background: var(--bg-inset);
+  border: 1px solid var(--bdr);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, background 0.3s;
+}
+.metric-cell::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--bdr-bright);
+  border-radius: 2px 0 0 2px;
+  transition: background 0.3s;
+}
+.metric-cell.metric-ok::before   { background: var(--ok); }
+.metric-cell.metric-warn::before { background: var(--warn); }
+.metric-cell.metric-alert::before{ background: var(--alert); }
+
+.metric-label {
+  font-family: var(--f-mono);
+  font-size: 0.76rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.metric-value {
+  font-family: var(--f-mono);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--tx-bright);
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+.metric-unit {
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.06em;
+  display: block;
+  margin-top: 2px;
+}
+
+/* Metric state colors */
+.metric-cell.metric-ok   .metric-value { color: var(--ok); }
+.metric-cell.metric-warn .metric-value { color: var(--warn); }
+.metric-cell.metric-alert .metric-value { color: var(--alert); }
+/* ── Device Badges ── */
+.device-badges { display:flex; gap:5px; flex-wrap:wrap; margin:6px 0 2px; }
+.dev-badge {
+  font-family:var(--f-mono); font-size:.62rem; font-weight:700;
+  padding:2px 8px; border-radius:3px;
+  background:var(--bg-inset); color:var(--tx-lo);
+  border:1px solid var(--bdr); letter-spacing:.06em;
+  transition:all .3s;
+}
+.dev-badge.error {
+  background:rgba(255,61,61,.12); color:var(--alert);
+  border-color:rgba(255,61,61,.4);
+  animation:alertPulse 2s ease-in-out infinite;
+}
+.dev-badge.offline {
+  background:rgba(69,90,112,.15); color:#7090aa;
+  border-color:rgba(69,90,112,.3); opacity:.7;
+}
+/* ── Sensor Error Cell ── */
+.metric-cell.sensor-error {
+  border-color:rgba(255,61,61,.4) !important;
+  background:rgba(255,20,20,.04) !important;
+  position:relative;
+}
+.metric-cell.sensor-error .metric-value { color:var(--tx-lo) !important; }
+.metric-cell.sensor-error::after {
+  content:'⚠ SENSOR ERROR';
+  position:absolute; bottom:3px; right:5px;
+  font-size:.55rem; color:var(--alert);
+  letter-spacing:.06em; opacity:.8;
+}
+
+/* ── WATER BAR ── */
+.water-bar-wrap {
+  margin-bottom: var(--sp-2);
+}
+.water-bar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.water-bar-label {
+  font-family: var(--f-mono);
+  font-size: 0.8rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.1em;
+}
+.water-bar-val {
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  color: var(--cyan);
+  font-weight: 700;
+}
+.water-bar-track {
+  height: 5px;
+  background: var(--bg-inset);
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--bdr);
+}
+.water-bar-fill {
+  height: 100%;
+  background: var(--cyan);
+  border-radius: 3px;
+  transition: width 1s ease, background 0.5s;
+  box-shadow: 0 0 8px rgba(0,200,255,0.4);
+}
+.water-bar-fill.mid { background: var(--warn); box-shadow: 0 0 8px rgba(255,167,38,0.4); }
+.water-bar-fill.low { background: var(--alert); box-shadow: 0 0 8px rgba(255,61,61,0.4); }
+
+/* ── SCORE STRIP ── */
+.score-strip {
+  padding: 10px var(--sp-4);
+  border-top: 1px solid var(--bdr);
+  background: var(--bg-inset);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.score-label-area {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.score-label-area span:first-child {
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.score-label-area span:last-child {
+  font-family: var(--f-mono);
+  font-size: 0.75rem;
+  color: var(--tx-mid);
+}
+
+/* ── BADGE ── */
+.badge {
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 4px 11px;
+  border-radius: 20px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.badge-normal  { background: var(--ok-bg);      color: var(--ok);      border-color: var(--ok-bdr); }
+.badge-warning { background: var(--warn-bg);     color: var(--warn);    border-color: var(--warn-bdr); }
+.badge-alert   { background: var(--alert-bg);    color: var(--alert);   border-color: var(--alert-bdr); animation: alertPulse 2s ease-in-out infinite; }
+.badge-offline { background: var(--offline-bg);  color: var(--offline); border-color: rgba(69,90,112,0.3); }
+
+/* ── ALERT STRIP ── */
+.alert-strip {
+  display: none;
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  color: var(--alert);
+  background: rgba(255,61,61,0.06);
+  border: 1px solid rgba(255,61,61,0.2);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  letter-spacing: 0.05em;
+  line-height: 1.7;
+  margin-top: var(--sp-2);
+  white-space: pre-line;
+}
+
+/* ── CCTV CHIP BAR ── */
+.cctv-sensor-bar {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  display: flex;
+  gap: 5px;
+  pointer-events: none;
+}
+.cctv-sensor-chip {
+  background: rgba(0,0,0,0.65);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-family: var(--f-mono);
+  font-size: 0.82rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  backdrop-filter: blur(2px);
+}
+.cctv-chip-label {
+  color: rgba(255,255,255,0.45);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+}
+.cctv-chip-val        { color: var(--cyan); font-weight: 700; font-size: 0.86rem; }
+.cctv-chip-val.warn   { color: var(--warn); }
+.cctv-chip-val.alert  { color: var(--alert); }
+
+/* ── CCTV FULLSCREEN BUTTON ── */
+.cctv-fullscreen-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(0,200,255,0.25);
+  border-radius: 3px;
+  color: rgba(0,200,255,0.7);
+  font-size: 0.72rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+  backdrop-filter: blur(2px);
+  opacity: 0;
+}
+.cctv-wrap:hover .cctv-fullscreen-btn { opacity: 1; }
+.cctv-fullscreen-btn:hover {
+  background: rgba(0,200,255,0.18);
+  border-color: rgba(0,200,255,0.55);
+  color: var(--cyan);
+  box-shadow: 0 0 10px rgba(0,200,255,0.2);
+}
+
+/* ══════════════════════════════════════════════════
+   CCTV CINEMATIC MODAL
+══════════════════════════════════════════════════ */
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modalSlideIn {
+  from { transform: scale(0.94) translateY(12px); opacity: 0; }
+  to   { transform: scale(1)    translateY(0);    opacity: 1; }
+}
+@keyframes hudReveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cornerPulse {
+  0%,100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+@keyframes scanPass {
+  0%   { top: -4px; opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 0.4; }
+  100% { top: 100%; opacity: 0; }
+}
+@keyframes noiseFlicker {
+  0%,100% { opacity: 0.018; }
+  50%      { opacity: 0.03; }
+}
+@keyframes chipIn {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes statusBlink {
+  0%,49% { opacity: 1; }
+  50%,100% { opacity: 0; }
+}
+
+.cctv-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,2,8,0.96);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+}
+.cctv-modal-overlay.active {
+  display: flex;
+  animation: modalFadeIn 0.25s ease forwards;
+}
+.cctv-modal-overlay.active .cctv-modal-inner {
+  animation: modalSlideIn 0.35s cubic-bezier(0.22,1,0.36,1) forwards;
+}
+
+/* ── Outer glow ring ── */
+.cctv-modal-inner {
+  position: relative;
+  width: min(92vw, calc(92vh * 16/9));
+  aspect-ratio: 16/9;
+  background: #010508;
+  border: 1px solid rgba(0,200,255,0.22);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(0,200,255,0.06),
+    0 0 40px rgba(0,200,255,0.12),
+    0 0 100px rgba(0,200,255,0.06),
+    0 30px 80px rgba(0,0,0,0.8);
+}
+
+.cctv-modal-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── CRT noise overlay ── */
+.cctv-modal-inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  opacity: 0.022;
+  pointer-events: none;
+  z-index: 10;
+  mix-blend-mode: overlay;
+  animation: noiseFlicker 3s ease-in-out infinite;
+}
+
+/* ── Moving scanline ── */
+.cctv-modal-scanline {
+  position: absolute;
+  left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(0,200,255,0.07) 40%,
+    rgba(0,200,255,0.12) 50%,
+    rgba(0,200,255,0.07) 60%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 9;
+  animation: scanPass 8s linear infinite;
+}
+
+/* ── Vignette ── */
+.cctv-modal-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center,
+    transparent 55%,
+    rgba(0,0,0,0.55) 100%
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* ── Corner brackets ── */
+.cctv-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  pointer-events: none;
+  z-index: 8;
+  animation: cornerPulse 3s ease-in-out infinite;
+}
+.cctv-corner svg { width: 100%; height: 100%; }
+.cctv-corner.tl { top: 10px;    left: 10px; }
+.cctv-corner.tr { top: 10px;    right: 10px; transform: scaleX(-1); }
+.cctv-corner.bl { bottom: 10px; left: 10px;  transform: scaleY(-1); }
+.cctv-corner.br { bottom: 10px; right: 10px; transform: scale(-1,-1); }
+
+/* ── TOP HUD bar ── */
+.cctv-modal-top {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 52px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.75) 0%, transparent 100%);
+  display: flex;
+  align-items: center;
+  padding: 0 48px 0 16px;
+  gap: 16px;
+  z-index: 6;
+  pointer-events: none;
+  animation: hudReveal 0.5s 0.2s ease both;
+}
+.cctv-modal-rec-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--alert);
+  letter-spacing: 0.15em;
+}
+.cctv-modal-rec-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--alert);
+  box-shadow: 0 0 6px var(--alert), 0 0 12px rgba(255,61,61,0.4);
+  animation: statusBlink 1.1s step-end infinite;
+}
+.cctv-hud-divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(0,200,255,0.2);
+  flex-shrink: 0;
+}
+.cctv-modal-ch-label {
+  font-family: var(--f-mono);
+  font-size: 0.82rem;
+  color: rgba(0,200,255,0.9);
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+.cctv-modal-species-label {
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  color: rgba(180,220,255,0.5);
+  letter-spacing: 0.1em;
+}
+.cctv-modal-top-ts {
+  margin-left: auto;
+  font-family: var(--f-mono);
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.3);
+  letter-spacing: 0.08em;
+}
+
+/* ── CLOSE button ── */
+.cctv-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 3px;
+  color: rgba(255,255,255,0.45);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  pointer-events: all;
+  z-index: 20;
+  letter-spacing: 0;
+}
+.cctv-modal-close:hover {
+  background: rgba(255,50,50,0.2);
+  border-color: rgba(255,50,50,0.45);
+  color: var(--alert);
+  box-shadow: 0 0 12px rgba(255,50,50,0.2);
+}
+
+/* ── BOTTOM panel ── */
+.cctv-modal-bottom {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: linear-gradient(0deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+  padding: 28px 20px 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  z-index: 6;
+  pointer-events: none;
+  animation: hudReveal 0.5s 0.3s ease both;
+}
+
+/* ── Sensor chips row ── */
+.cctv-modal-sensors {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.cctv-modal-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0,8,20,0.7);
+  border: 1px solid rgba(0,200,255,0.18);
+  border-radius: 4px;
+  padding: 10px 16px 8px;
+  min-width: 68px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(0,200,255,0.06);
+  position: relative;
+  overflow: hidden;
+}
+.cctv-modal-chip::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,200,255,0.3), transparent);
+}
+.cctv-modal-chip:nth-child(1) { animation: chipIn 0.4s 0.35s ease both; }
+.cctv-modal-chip:nth-child(2) { animation: chipIn 0.4s 0.42s ease both; }
+.cctv-modal-chip:nth-child(3) { animation: chipIn 0.4s 0.49s ease both; }
+.cctv-modal-chip:nth-child(4) { animation: chipIn 0.4s 0.56s ease both; }
+.chip-label {
+  font-family: var(--f-mono);
+  font-size: 0.74rem;
+  color: rgba(0,200,255,0.45);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.chip-val {
+  font-family: var(--f-mono);
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: rgba(0,200,255,0.95);
+  line-height: 1;
+  letter-spacing: -0.01em;
+  text-shadow: 0 0 12px rgba(0,200,255,0.5);
+}
+.chip-val.warn  { color: var(--warn);  text-shadow: 0 0 12px rgba(255,167,38,0.5); }
+.chip-val.alert { color: var(--alert); text-shadow: 0 0 12px rgba(255,61,61,0.5);  }
+.chip-unit {
+  font-family: var(--f-mono);
+  font-size: 0.76rem;
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 0.08em;
+  margin-top: 1px;
+}
+
+/* ── Bottom-right info ── */
+.cctv-modal-meta {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cctv-modal-tank-name {
+  font-family: var(--f-mono);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.75);
+  letter-spacing: 0.06em;
+}
+.cctv-modal-ts {
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.08em;
+}
+.cctv-modal-score-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+.cctv-modal-score-label {
+  font-family: var(--f-mono);
+  font-size: 0.74rem;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.1em;
+}
+.cctv-modal-score-val {
+  font-family: var(--f-mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ok);
+  text-shadow: 0 0 10px rgba(0,232,124,0.4);
+}
+
+/* ── Quality bar at very bottom ── */
+.cctv-modal-qbar-wrap {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: rgba(255,255,255,0.04);
+  z-index: 7;
+  pointer-events: none;
+}
+.cctv-modal-qbar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ok), rgba(0,200,255,0.5));
+  box-shadow: 0 0 6px rgba(0,200,255,0.4);
+  transition: width 1.2s ease;
+}
+
+/* ── ESC hint ── */
+.cctv-modal-esc {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  text-align: center;
+  font-family: var(--f-mono);
+  font-size: 0.76rem;
+  color: rgba(255,255,255,0.12);
+  letter-spacing: 0.12em;
+  padding-bottom: 6px;
+  z-index: 7;
+  pointer-events: none;
+  animation: hudReveal 0.5s 0.6s ease both;
+}
+
+/* ── SCAN LINE on CCTV ── */
+@keyframes scanline {
+  0%   { top: -10%; }
+  100% { top: 110%; }
+}
+.cctv-scanline {
+  position: absolute;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(180deg, transparent, rgba(0,200,255,0.06), transparent);
+  animation: scanline 6s linear infinite;
+  pointer-events: none;
+}
+
+/* ── CARD FOOTER ── */
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px var(--sp-4);
+  border-top: 1px solid var(--bdr);
+  background: var(--bg-inset);
+}
+.footer-ts     { font-family: var(--f-mono); font-size: 0.75rem; color: var(--tx-mid); letter-spacing: 0.04em; }
+.footer-device { font-family: var(--f-mono); font-size: 0.8rem; color: var(--tx-lo);  letter-spacing: 0.06em; }
+
+/* ── SECTION HEAD ── */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+.section-title {
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--bdr-bright), transparent);
+}
+
+/* ── API BAR ── */
+.api-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--bdr-bright);
+  border-radius: var(--radius-md);
+  padding: 10px var(--sp-5);
+  margin-bottom: var(--sp-5);
+  display: flex;
+  gap: var(--sp-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+.api-bar-label {
+  font-family: var(--f-mono);
+  font-size: 0.72rem;
+  color: var(--tx-lo);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.api-bar input {
+  flex: 1;
+  min-width: 240px;
+  font-family: var(--f-mono);
+  font-size: 0.82rem;
+  background: var(--bg-inset);
+  border: 1px solid var(--bdr-bright);
+  color: var(--tx-hi);
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+.api-bar input:focus { border-color: var(--cyan); }
+.btn-test {
+  font-family: var(--f-mono);
+  font-size: 0.78rem;
+  background: var(--cyan-dim);
+  border: 1px solid var(--cyan-bdr);
+  color: var(--cyan);
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.btn-test:hover { background: rgba(0,200,255,0.2); }
+
+/* ── ML-AUTO utility ── */
+.ml-auto { margin-left: auto !important; }
+
+/* ── Sparkline ── */
+.sparkline-wrap { height: 30px; margin-bottom: 4px; }
+.sparkline-canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="tb-logo">
+    <svg class="logo-svg" viewBox="0 0 38 38" fill="none">
+      <rect x="1.5" y="1.5" width="35" height="35" rx="3" stroke="#00c8ff" stroke-width="1.2"/>
+      <path d="M6 26 Q11 18 16 22 Q21 26 26 18 Q31 11 34 15" stroke="#00c8ff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <circle cx="9"  cy="21" r="2" fill="#00e87c"/>
+      <circle cx="19" cy="24" r="2" fill="#00c8ff"/>
+      <circle cx="28" cy="16" r="2" fill="#ffa726"/>
+      <path d="M14 12 L14 7 L24 7 L24 12" stroke="#00c8ff" stroke-width="1.2" fill="none"/>
+      <path d="M19 7 L19 4" stroke="#00c8ff" stroke-width="1.2"/>
+    </svg>
+    <div class="tb-logo-text">
+      <div class="logo-name">AQUAOS</div>
+      <div class="logo-sub">SMART AQUACULTURE CONTROL</div>
+    </div>
+  </a>
+  <nav class="tb-nav">
+    <a href="index.html" class="active">DASHBOARD</a>
+    <a href="history.html">HISTORY</a>
+    <a href="alert_log.html">ALERTS</a>
+    <a href="report.html">REPORT</a>
+    <a href="settings.html">SETTINGS</a>
+    <a href="simulator.html">SIMULATOR</a>
+    <a href="device_health.html">DEVICE HEALTH</a>
+  </nav>
+  <div class="tb-stats">
+    <div class="tb-stat">
+      <span class="tb-stat-label">TANKS ONLINE</span>
+      <span class="tb-stat-val" id="hdr-online">—/—</span>
+    </div>
+    <div class="tb-stat">
+      <span class="tb-stat-label">ACTIVE ALERTS</span>
+      <span class="tb-stat-val" id="hdr-alerts">—</span>
+    </div>
+    <div class="tb-stat">
+      <span class="tb-stat-label">DATA MODE</span>
+      <span class="tb-stat-val text-cyan" id="hdr-mode" style="font-size:0.78rem;">INIT</span>
+    </div>
+    <div class="tb-sync">
+      <div class="sync-dot" id="sync-dot"></div>
+      <div class="flex-col" style="align-items:flex-end;">
+        <span class="sync-label" id="sync-label">CONNECTING</span>
+        <span class="sync-time" id="sync-time">—</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+  <div class="api-bar" id="api-config-bar">
+    <span class="api-bar-label">API BASE URL:</span>
+    <input id="api-base-input" type="text"
+      placeholder="http://localhost:8080/SmartAquacultureSystem  (เว้นว่างถ้าใช้ ../api)"
+      oninput="onApiBaseChange()">
+    <button class="btn-test" onclick="testAndReload()">▶ TEST &amp; RELOAD</button>
+    <span id="api-test-result" style="font-family:var(--f-mono);font-size:0.78rem;"></span>
+
+    <!-- ── Notification Sound + Auto Mode toggles ── -->
+    <div style="display:flex;align-items:center;gap:14px;margin-left:auto;font-family:var(--f-mono);font-size:0.72rem;color:var(--tx-mid);letter-spacing:0.08em;">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <span>🔊 SOUND</span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="toggle-sound" checked onchange="toggleSound()">
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <span>🤖 AUTO-FEED</span>
+        <span class="toggle-switch">
+          <input type="checkbox" id="toggle-autofeed" checked onchange="toggleAutoFeed()">
+          <span class="toggle-slider"></span>
+        </span>
+      </label>
+    </div>
+  </div>
+
+  <div class="section-head">
+    <span class="section-title">TANK MONITORING — REALTIME</span>
+    <div class="section-line"></div>
+    <span class="section-title" id="tank-count-label">— NODES</span>
+  </div>
+
+  <div class="tank-grid" id="tank-grid">
+    <div style="grid-column:1/-1;padding:60px 40px;text-align:center;font-family:var(--f-mono);font-size:0.82rem;color:var(--tx-lo);letter-spacing:0.15em;">
+      INITIALIZING SENSOR NETWORK...
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════
+       ACTIVITY FEED TIMELINE — เหตุการณ์ล่าสุดของระบบ
+       ═══════════════════════════════════════════════════ -->
+  <div class="section-head" style="margin-top:24px;">
+    <span class="section-title">SYSTEM ACTIVITY</span>
+    <div class="section-line"></div>
+    <span class="section-title" id="activity-count-label">— EVENTS</span>
+  </div>
+
+  <div class="card" style="margin-bottom:24px;">
+    <div class="card-head">
+      <div>
+        <div class="card-title">Activity Feed</div>
+        <div class="card-sub">REAL-TIME EVENT TIMELINE · AUTO-REFRESH 15s</div>
+      </div>
+      <a href="alert_log.html" class="btn btn-ghost text-xs" style="text-decoration:none;">VIEW ALL →</a>
+    </div>
+    <div id="activity-timeline" style="padding:16px 20px;max-height:360px;overflow-y:auto;">
+      <div class="text-muted text-sm" style="text-align:center;padding:40px 20px;font-family:var(--f-mono);">LOADING RECENT EVENTS...</div>
+    </div>
+  </div>
+</main>
+
+<style>
+/* ── Activity Feed Timeline styles ── */
+.timeline-item {
+  display:flex; gap:12px; padding:10px 0;
+  border-bottom:1px solid var(--bdr);
+}
+.timeline-item:last-child { border-bottom:none; }
+.timeline-dot {
+  flex:0 0 10px; width:10px; height:10px; margin-top:6px;
+  border-radius:50%; background:var(--cyan);
+  box-shadow:0 0 8px var(--cyan);
+}
+.timeline-dot.critical { background:var(--alert); box-shadow:0 0 8px var(--alert); }
+.timeline-dot.warning  { background:var(--warn);  box-shadow:0 0 8px var(--warn);  }
+.timeline-dot.info     { background:var(--cyan);  box-shadow:0 0 8px var(--cyan);  }
+.timeline-dot.ok       { background:var(--ok);    box-shadow:0 0 8px var(--ok);    }
+.timeline-content { flex:1; min-width:0; }
+.timeline-meta {
+  display:flex; gap:10px; align-items:baseline; margin-bottom:3px;
+  font-family:var(--f-mono); font-size:0.8rem; color:var(--tx-lo); letter-spacing:0.08em;
+}
+.timeline-time { color:var(--tx-mid); font-weight:600; }
+.timeline-tank { color:var(--cyan); }
+.timeline-detail { font-size:0.85rem; color:var(--tx-hi); line-height:1.4; }
+.timeline-sev-badge {
+  display:inline-block; padding:1px 6px; border-radius:3px;
+  font-size:0.76rem; font-family:var(--f-mono); font-weight:700; letter-spacing:0.06em;
+}
+.timeline-sev-badge.critical { background:rgba(255,80,80,.15); color:#ff6b6b; border:1px solid rgba(255,80,80,.3); }
+.timeline-sev-badge.warning  { background:rgba(255,167,38,.15); color:#ffa726; border:1px solid rgba(255,167,38,.3); }
+.timeline-sev-badge.info     { background:rgba(0,200,255,.12); color:#00c8ff; border:1px solid rgba(0,200,255,.3); }
+.timeline-sev-badge.ok       { background:rgba(0,232,124,.12); color:#00e87c; border:1px solid rgba(0,232,124,.3); }
+</style>
+
+<!-- ── CCTV CINEMATIC MODAL ── -->
+<div class="cctv-modal-overlay" id="cctv-modal" onclick="closeCCTVModal(event)">
+  <div class="cctv-modal-inner" id="cctv-modal-inner">
+    <!-- Canvas -->
+    <canvas class="cctv-modal-canvas" id="cctv-modal-canvas"></canvas>
+
+    <!-- CRT effects -->
+    <div class="cctv-modal-scanline"></div>
+    <div class="cctv-modal-vignette"></div>
+
+    <!-- Corner brackets -->
+    <div class="cctv-corner tl"><svg viewBox="0 0 22 22" fill="none"><path d="M1 12V1H12" stroke="rgba(0,200,255,0.6)" stroke-width="1.5" stroke-linecap="square"/></svg></div>
+    <div class="cctv-corner tr"><svg viewBox="0 0 22 22" fill="none"><path d="M1 12V1H12" stroke="rgba(0,200,255,0.6)" stroke-width="1.5" stroke-linecap="square"/></svg></div>
+    <div class="cctv-corner bl"><svg viewBox="0 0 22 22" fill="none"><path d="M1 12V1H12" stroke="rgba(0,200,255,0.6)" stroke-width="1.5" stroke-linecap="square"/></svg></div>
+    <div class="cctv-corner br"><svg viewBox="0 0 22 22" fill="none"><path d="M1 12V1H12" stroke="rgba(0,200,255,0.6)" stroke-width="1.5" stroke-linecap="square"/></svg></div>
+
+    <!-- Top HUD -->
+    <div class="cctv-modal-top">
+      <div class="cctv-modal-rec-badge"><div class="cctv-modal-rec-dot"></div>REC</div>
+      <div class="cctv-hud-divider"></div>
+      <span class="cctv-modal-ch-label" id="cctv-modal-ch">CH-00 / HD</span>
+      <div class="cctv-hud-divider"></div>
+      <span class="cctv-modal-species-label" id="cctv-modal-species">—</span>
+      <span class="cctv-modal-top-ts" id="cctv-modal-top-ts">—</span>
+    </div>
+
+    <!-- Close -->
+    <button class="cctv-modal-close" onclick="_doCloseCCTVModal()">✕</button>
+
+    <!-- Bottom panel -->
+    <div class="cctv-modal-bottom">
+      <div class="cctv-modal-sensors">
+        <div class="cctv-modal-chip">
+          <span class="chip-label">TEMP</span>
+          <span class="chip-val" id="cctv-modal-temp">—</span>
+          <span class="chip-unit">°C</span>
+        </div>
+        <div class="cctv-modal-chip">
+          <span class="chip-label">pH</span>
+          <span class="chip-val" id="cctv-modal-ph">—</span>
+          <span class="chip-unit">pH</span>
+        </div>
+        <div class="cctv-modal-chip">
+          <span class="chip-label">TURB</span>
+          <span class="chip-val" id="cctv-modal-turb">—</span>
+          <span class="chip-unit">NTU</span>
+        </div>
+        <div class="cctv-modal-chip">
+          <span class="chip-label">WATER</span>
+          <span class="chip-val" id="cctv-modal-water">—</span>
+          <span class="chip-unit">%</span>
+        </div>
+      </div>
+      <div class="cctv-modal-meta">
+        <div class="cctv-modal-tank-name" id="cctv-modal-name">—</div>
+        <div class="cctv-modal-ts" id="cctv-modal-info">—</div>
+        <div class="cctv-modal-score-wrap">
+          <span class="cctv-modal-score-label">QUALITY</span>
+          <span class="cctv-modal-score-val" id="cctv-modal-score">—</span>
+          <span class="cctv-modal-score-label">/ 100</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quality bar -->
+    <div class="cctv-modal-qbar-wrap"><div class="cctv-modal-qbar-fill" id="cctv-modal-qbar" style="width:0%"></div></div>
+
+    <!-- ESC hint -->
+    <div class="cctv-modal-esc">ESC TO CLOSE</div>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<footer class="statusbar">
+  <div class="sb-item"><div class="sb-dot" id="sb-dot"></div><span id="sb-conn">SYSTEM ONLINE</span></div>
+  <div class="sb-item" id="sb-page-info"></div>
+  <div class="sb-item">VER 2.2.0</div>
+  <div class="sb-item">POLL 5s</div>
+  <div class="sb-item" id="sb-api-mode">MODE: INIT</div>
+  <div class="sb-right" id="sb-time">—</div>
+</footer>
+
+<script>
+function normalizeApiBase(input) {
+  let base = (input || '').trim();
+  if (!base) return '../api';
+
+  base = base.replace(/\/+$/, '');
+
+  if (base.endsWith('/api')) return base;
+  if (base.endsWith('/SmartAquacultureSystem')) return base + '/api';
+  if (/^https?:\/\/[^/]+$/i.test(base)) return base + '/api';
+
+  return base;
+}
+
+function getApiBase() {
+  return normalizeApiBase(localStorage.getItem('aquaos_api_base') || '');
+}
+
+async function safeFetchJson(url, options = {}) {
+  try {
+    const res = await fetch(url, { cache: 'no-store', ...options });
+    const text = await res.text();
+
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error('API returned non-JSON:', url, text);
+      return {
+        success: false,
+        message: 'API did not return JSON',
+        raw: text,
+        status: res.status
+      };
+    }
+  } catch (err) {
+    return {
+      success: false,
+      message: err.message || 'Network error'
+    };
+  }
+}
+
+const CFG = {
+  API_URL:     getApiBase() + '/get_latest.php',
+  POLL_MS:     5000,
+  MOCK_TANKS:  5,
+  SPARK_PTS:   24,
+  DEFAULTS: {
+    min_temp:24, max_temp:32, target_temp:28,
+    trigger_ph:8.5, trigger_turbidity:50,
+    water_low:30, water_warn:50,
+  },
+  TANK_NAMES:   ['ตู้ปลานิล A1','Tank B2 - Dory','ตู้ปลาดุก C1','Tank D3 - Clownfish','ตู้ปลาทับทิม E2'],
+  TANK_SPECIES: ['NILE TILAPIA','DORY','CATFISH','CLOWNFISH','RED TILAPIA'],
+};
+
+const STATE = {
+  tanks: [], lastRender: {}, sparklines: {}, cctv: {},
+  cctvRAF: {}, apiMode: 'INIT', pollTimer: null,
+};
+
+/* ── MOCK ENGINE ── */
+const MOCK = (() => {
+  const _s = Array.from({length:CFG.MOCK_TANKS},(_,i)=>({
+    tank_id:i+1, temperature:27+Math.random()*3, ph_level:7+Math.random()*0.8,
+    turbidity:20+Math.random()*20, water_level:75+Math.random()*15,
+    _tgt:28, _anom:0,
+  }));
+  const _sets = CFG.TANK_NAMES.map((_,i)=>({
+    target_temp:27+i*0.5, min_temp:24, max_temp:32,
+    trigger_turbidity:50, trigger_ph:8.5, auto_feed_status:i%2===0?'on':'off',
+  }));
+  const drift=(v,t,n,mn,mx)=>Math.max(mn,Math.min(mx, v+(t-v)*0.05+(Math.random()-0.5)*n));
+  function generate() {
+    return _s.map((s,i)=>{
+      if(s._anom>0){s._anom--;}else if(Math.random()<0.025){s._anom=3;s._tgt=Math.random()<0.5?37:21;}else{s._tgt=_sets[i].target_temp;}
+      s.temperature = drift(s.temperature,s._tgt,0.3,18,40);
+      s.ph_level    = drift(s.ph_level,7.2,0.05,5,10);
+      s.turbidity   = drift(s.turbidity,25,1.5,5,100);
+      s.water_level = drift(s.water_level,82,0.5,10,100);
+      return {
+        tank_id:s.tank_id, tank_name:CFG.TANK_NAMES[i], status:'online',
+        latest_sensor:{
+          temperature:+s.temperature.toFixed(1), ph_level:+s.ph_level.toFixed(2),
+          turbidity:+s.turbidity.toFixed(1), water_level:+s.water_level.toFixed(0),
+          recorded_at:new Date().toISOString(),
+        },
+        settings:_sets[i], recent_alerts:[],
+      };
+    });
+  }
+  return {generate};
+})();
+
+/* ── API LAYER ── */
+async function fetchData() {
+  setSync('syncing');
+  try {
+    CFG.API_URL = getApiBase() + '/get_latest.php';
+
+    const j = await safeFetchJson(CFG.API_URL);
+
+    if (!j || !j.success || !Array.isArray(j.data) || !j.data.length) {
+      throw new Error(j?.message || 'Empty response');
+    }
+
+    STATE.apiMode = 'API';
+    setSync('ok', `LIVE: ${new Date().toLocaleTimeString('th-TH',{hour12:false})}`);
+    updateEl('hdr-mode','API LIVE');
+    updateEl('sb-api-mode','MODE: API');
+    document.getElementById('hdr-mode').style.color='var(--ok)';
+    return j.data;
+  } catch(e) {
+    STATE.apiMode='MOCK';
+    setSync('error',`ERR: ${String(e.message).substring(0,30)}`);
+    updateEl('hdr-mode','MOCK');
+    updateEl('sb-api-mode','MODE: MOCK');
+    document.getElementById('hdr-mode').style.color='var(--warn)';
+    const d=document.getElementById('sb-dot');
+    if(d) d.style.background='var(--warn)';
+    if(!STATE.tanks.length) showToast(`⚠ API ไม่ตอบ — ใช้ Mock Data`,'warn');
+    return MOCK.generate();
+  }
+}
+/* ═══════════════════════════════════════════════════════════
+   ENHANCED CCTV ENGINE — Species-Specific Fish Rendering
+═══════════════════════════════════════════════════════════ */
+
+/* ── Map DB species string → profile key ──
+   รองรับทั้งภาษาไทย/อังกฤษและรูปแบบผสม เช่น "Tank A1 - Tilapia" */
+function speciesToProfile(raw) {
+  const s = String(raw || '').toLowerCase();
+  if (s.includes('red tilapia') || s.includes('ทับทิม'))                     return 'RED TILAPIA';
+  if (s.includes('tilapia') || s.includes('นิล'))                             return 'NILE TILAPIA';
+  if (s.includes('catfish') || s.includes('ดุก'))                             return 'CATFISH';
+  if (s.includes('nemo')    || s.includes('clownfish') || s.includes('นีโม')) return 'CLOWNFISH';
+  if (s.includes('dory')    || s.includes('blue tang') || s.includes('ดอลลี่')) return 'DORY';
+  if (s.includes('prawn')   || s.includes('ก้ามกราม'))                        return 'CLOWNFISH';
+  if (s.includes('shrimp')  || s.includes('กุ้ง'))                             return 'DORY';
+  return 'NILE TILAPIA';
+}
+
+const CCTV = (() => {
+
+  /* ── Species profiles ── */
+  const SPECIES_PROFILES = {
+    'NILE TILAPIA': {
+      fishCount: 7,
+      mkFish: (W,H) => ({
+        x: Math.random()*W, y: 40+Math.random()*(H-80),
+        vx: (Math.random()<0.5?-1:1)*(0.6+Math.random()*0.7),
+        vy: (Math.random()-0.5)*0.15,
+        // Bright olive-green body, visible in water
+        bodyHue: 90+Math.random()*30, bodySat: 48+Math.random()*18, bodyLit: 52+Math.random()*12,
+        finHue: 85, finAlpha: 0.82,
+        size: 7+Math.random()*6,
+        phase: Math.random()*Math.PI*2,
+        speed: 0.028+Math.random()*0.02,
+        type: 'tilapia',
+        stripeCount: 5+Math.floor(Math.random()*3),
+      }),
+      waterTint: [0, 78, 55],   // brighter greenish water
+      waterOpacity: 0.80,
+      particles: 'sediment',
+      environment: 'freshwater_plants',   // สาหร่าย + พันธุ์ไม้น้ำ
+    },
+    'WHITE SHRIMP': {
+      fishCount: 14,
+      mkFish: (W,H) => ({
+        x: Math.random()*W, y: 30+Math.random()*(H-60),
+        vx: (Math.random()<0.5?-1:1)*(0.3+Math.random()*0.5),
+        vy: (Math.random()-0.5)*0.4,
+        // Semi-transparent white/pink body
+        bodyHue: 10+Math.random()*20, bodySat: 10+Math.random()*30, bodyLit: 75+Math.random()*15,
+        size: 3+Math.random()*4,
+        phase: Math.random()*Math.PI*2,
+        speed: 0.06+Math.random()*0.05,
+        type: 'shrimp',
+        legPhase: Math.random()*Math.PI*2,
+        antLength: 6+Math.random()*8,
+      }),
+      waterTint: [0, 70, 80],   // clear blue-green
+      waterOpacity: 0.88,
+      particles: 'bubbles',
+      environment: 'shrimp_substrate',  // เปลือกหอย + พืชแนวทะเลสาบ
+    },
+    'CATFISH': {
+      fishCount: 5,
+      mkFish: (W,H) => ({
+        x: Math.random()*W, y: (H*0.55)+Math.random()*(H*0.35),  // bottom dwellers
+        vx: (Math.random()<0.5?-1:1)*(0.3+Math.random()*0.5),
+        vy: (Math.random()-0.5)*0.08,
+        // Warm brown/tan — visible against water
+        bodyHue: 30+Math.random()*20, bodySat: 38+Math.random()*18, bodyLit: 42+Math.random()*14,
+        size: 10+Math.random()*8,
+        phase: Math.random()*Math.PI*2,
+        speed: 0.018+Math.random()*0.015,
+        type: 'catfish',
+        barbCount: 3,
+        barbLength: 8+Math.random()*6,
+      }),
+      waterTint: [35, 68, 48],  // warm brownish-green, visible
+      waterOpacity: 0.82,
+      particles: 'mud',
+      environment: 'driftwood',   // ขอนไม้ + ใบไม้ร่วง
+    },
+    'GIANT RIVER PRAWN': {
+      fishCount: 9,
+      mkFish: (W,H) => ({
+        x: Math.random()*W, y: 25+Math.random()*(H-55),
+        vx: (Math.random()<0.5?-1:1)*(0.25+Math.random()*0.4),
+        vy: (Math.random()-0.5)*0.35,
+        // Blue claws, brownish body
+        bodyHue: 25+Math.random()*15, bodySat: 35+Math.random()*20, bodyLit: 45+Math.random()*15,
+        clawHue: 210+Math.random()*30,
+        size: 5+Math.random()*6,
+        phase: Math.random()*Math.PI*2,
+        speed: 0.04+Math.random()*0.04,
+        type: 'prawn',
+        legPhase: Math.random()*Math.PI*2,
+        clawOpen: Math.random(),
+        antLength: 12+Math.random()*10,
+      }),
+      waterTint: [10, 50, 60],  // slightly murky
+      waterOpacity: 0.9,
+      particles: 'bubbles',
+      environment: 'rocks_plants',  // ก้อนหิน + พันธุ์ไม้ใต้น้ำ
+    },
+    'RED TILAPIA': {
+      fishCount: 7,
+      mkFish: (W,H) => ({
+        x: Math.random()*W, y: 35+Math.random()*(H-70),
+        vx: (Math.random()<0.5?-1:1)*(0.55+Math.random()*0.65),
+        vy: (Math.random()-0.5)*0.15,
+        // True coral/pink-red body — shift hue away from orange (was 10-30, now 350-360 wrap 0-5)
+        bodyHue: (350 + Math.random()*15) % 360,   // 350-364 → -10 to 4 (pink-red range)
+        bodySat: 72 + Math.random()*18,             // 72-90 rich but not neon
+        bodyLit: 52 + Math.random()*12,             // 52-64 bright pink/salmon
+        finHue: 358, finAlpha: 0.85,                // deep red fins
+        size: 7+Math.random()*5,
+        phase: Math.random()*Math.PI*2,
+        speed: 0.03+Math.random()*0.022,
+        type: 'tilapia',
+        stripeCount: 4+Math.floor(Math.random()*3),
+      }),
+      waterTint: [0, 50, 60],   // clear
+      waterOpacity: 0.89,
+      particles: 'bubbles',
+      environment: 'bright_plants',  // พันธุ์ไม้สีเขียวสด
+    },
+    'DORY': {
+      fishCount: 8,
+      mkFish: (W,H) => ({
+        x: Math.random()*W, y: 35+Math.random()*(H-70),
+        vx: (Math.random()<0.5?-1:1)*(0.55+Math.random()*0.7),
+        vy: (Math.random()-0.5)*0.2,
+        // Blue tang body: vivid royal blue with some variation
+        bodyHue: 205+Math.random()*20, bodySat: 75+Math.random()*15, bodyLit: 45+Math.random()*10,
+        finHue: 50, finAlpha: 0.85,   // yellow-ish fins/tail
+        size: 7+Math.random()*5,
+        phase: Math.random()*Math.PI*2,
+        speed: 0.032+Math.random()*0.025,
+        type: 'tilapia',
+        stripeCount: 2+Math.floor(Math.random()*2),  // minimal black pattern
+      }),
+      waterTint: [0, 55, 75],   // tropical blue water
+      waterOpacity: 0.88,
+      particles: 'bubbles',
+      environment: 'bright_plants',
+    },
+    'CLOWNFISH': {
+      fishCount: 9,
+      mkFish: (W,H) => ({
+        x: Math.random()*W, y: 35+Math.random()*(H-70),
+        vx: (Math.random()<0.5?-1:1)*(0.5+Math.random()*0.6),
+        vy: (Math.random()-0.5)*0.2,
+        // Vivid orange body (Nemo)
+        bodyHue: 20+Math.random()*10, bodySat: 90+Math.random()*8, bodyLit: 55+Math.random()*8,
+        finHue: 20, finAlpha: 0.9,
+        size: 6+Math.random()*5,
+        phase: Math.random()*Math.PI*2,
+        speed: 0.035+Math.random()*0.025,
+        type: 'tilapia',
+        stripeCount: 3,   // 3 white/black bands characteristic of clownfish
+      }),
+      waterTint: [0, 60, 80],   // tropical reef water
+      waterOpacity: 0.87,
+      particles: 'bubbles',
+      environment: 'bright_plants',
+    },
+  };
+
+  /* ── Bubble factory ── */
+  function mkBubble(W,H){
+    return {x:20+Math.random()*(W-40), y:H+5, r:0.8+Math.random()*2.5, vy:0.45+Math.random()*0.6, life:1};
+  }
+
+  /* ── Draw background ── */
+  function drawBg(ctx, W, H, t, tint, op, status) {
+    const [tr, tg, tb] = tint;
+    const grd = ctx.createLinearGradient(0,0,0,H);
+    grd.addColorStop(0, `rgba(${tr},${Math.min(tg+20,80)},${Math.min(tb+30,90)},${op})`);
+    grd.addColorStop(0.5, `rgba(${Math.max(tr-5,0)},${tg},${tb},${Math.min(op+0.04,0.99)})`);
+    grd.addColorStop(1, `rgba(0,${Math.max(tg-20,5)},${Math.max(tb-20,10)},0.99)`);
+    ctx.fillStyle = grd;
+    ctx.fillRect(0,0,W,H);
+
+    // Status overlay
+    if(status==='alert')   { ctx.fillStyle='rgba(255,30,30,0.04)';   ctx.fillRect(0,0,W,H); }
+    else if(status==='warning') { ctx.fillStyle='rgba(255,140,0,0.03)'; ctx.fillRect(0,0,W,H); }
+
+    // Light rays
+    ctx.save();
+    for(let r=0;r<4;r++){
+      const rx = W*(0.15+r*0.22);
+      const osc = Math.sin(t*0.010+r*1.3)*16;
+      const rg = ctx.createLinearGradient(rx+osc,0,rx+osc+20,H);
+      rg.addColorStop(0,`rgba(${tr+80},${tg+100},${tb+120},0.02)`);
+      rg.addColorStop(0.45,`rgba(${tr+60},${tg+90},${tb+110},0.055)`);
+      rg.addColorStop(1,`rgba(0,0,0,0)`);
+      ctx.fillStyle=rg;
+      ctx.beginPath();
+      ctx.moveTo(rx+osc,0); ctx.lineTo(rx+osc+28,0);
+      ctx.lineTo(rx+osc+16,H); ctx.lineTo(rx+osc-10,H);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+
+    // Surface ripple lines
+    ctx.save();
+    ctx.strokeStyle=`rgba(${tr+80},${tg+110},${tb+130},0.15)`;
+    ctx.lineWidth=0.8;
+    for(let sx=0; sx<W; sx+=20){
+      const sy = 3+Math.sin(t*0.035+sx*0.08)*2;
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+16,sy); ctx.stroke();
+    }
+    ctx.restore();
+
+    // Sandy / gravel bottom
+    ctx.save();
+    ctx.fillStyle=`rgba(0,12,25,0.55)`;
+    ctx.fillRect(0,H-14,W,14);
+    for(let gx=0; gx<W; gx+=6){
+      const gy = H-11+Math.sin(gx*0.31)*4;
+      const gcol = tr>15 ? `rgba(${50+Math.random()*20},${35+Math.random()*15},${15+Math.random()*10},0.75)` : `rgba(${20+Math.random()*15},${35+Math.random()*15},${45+Math.random()*15},0.7)`;
+      ctx.fillStyle=gcol;
+      ctx.beginPath();
+      ctx.ellipse(gx,gy,2+Math.random()*2,1+Math.random()*0.8,0,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ── Draw: TILAPIA (nile/red) ── */
+  function drawTilapia(ctx, fish, t) {
+    const dir = fish.vx>0?1:-1;
+    const sz = fish.size;
+    fish.phase += fish.speed;
+    fish.x += fish.vx; fish.y += fish.vy + Math.sin(fish.phase)*0.28;
+    const hue=fish.bodyHue, sat=fish.bodySat, lit=fish.bodyLit;
+
+    ctx.save(); ctx.translate(fish.x, fish.y);
+
+    // Glow aura
+    const glow = ctx.createRadialGradient(0,0,0,0,0,sz*3.5);
+    glow.addColorStop(0, `hsla(${hue},${sat}%,${lit+10}%,0.10)`);
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(0,0,sz*3.5,0,Math.PI*2); ctx.fill();
+
+    // Tail fin with wave
+    const tailWave = Math.sin(fish.phase*1.4)*sz*0.55;
+    ctx.fillStyle = `hsla(${hue},${sat}%,${lit-10}%,0.8)`;
+    ctx.beginPath();
+    ctx.moveTo(-dir*sz*0.7, 0);
+    ctx.lineTo(-dir*sz*1.8, tailWave+sz*0.85);
+    ctx.lineTo(-dir*sz*1.8, tailWave-sz*0.85);
+    ctx.closePath(); ctx.fill();
+
+    // Main body (oval)
+    const bodyGrd = ctx.createRadialGradient(-dir*sz*0.2,-sz*0.2,0,0,0,sz*2.2);
+    bodyGrd.addColorStop(0, `hsla(${hue},${sat+15}%,${lit+18}%,0.95)`);
+    bodyGrd.addColorStop(0.6, `hsla(${hue},${sat}%,${lit}%,0.92)`);
+    bodyGrd.addColorStop(1, `hsla(${hue-5},${sat}%,${lit-12}%,0.88)`);
+    ctx.fillStyle = bodyGrd;
+    ctx.beginPath(); ctx.ellipse(0,0,sz*2,sz*0.9,0,0,Math.PI*2); ctx.fill();
+
+    // Vertical stripes (tilapia characteristic)
+    ctx.save();
+    ctx.globalCompositeOperation='multiply';
+    for(let i=0;i<fish.stripeCount;i++){
+      const sx = -sz*1.4 + (sz*2.8/fish.stripeCount)*i;
+      const sw = sz*0.22;
+      const sh = Math.sqrt(Math.max(0, (sz*0.9)**2 - (sx+sw/2)**2/(sz*2/sz*0.9)**2));
+      ctx.fillStyle=`rgba(0,0,0,0.12)`;
+      ctx.fillRect(sx, -sh*0.9, sw, sh*1.8);
+    }
+    ctx.restore();
+
+    // Dorsal fin
+    ctx.fillStyle=`hsla(${hue},${sat}%,${lit-8}%,${fish.finAlpha||0.75})`;
+    ctx.beginPath();
+    ctx.moveTo(-sz*1.0, -sz*0.82);
+    for(let i=0;i<=6;i++){
+      const bx = -sz*1.0 + (sz*2.0*i/6);
+      const by = -sz*0.82 - Math.abs(Math.sin(Math.PI*i/6))*sz*0.7 - Math.sin(fish.phase+i)*sz*0.08;
+      ctx.lineTo(bx,by);
+    }
+    ctx.lineTo(sz*1.0,-sz*0.82); ctx.closePath(); ctx.fill();
+
+    // Pectoral fin
+    ctx.fillStyle=`hsla(${hue+10},${sat}%,${lit}%,0.5)`;
+    ctx.beginPath();
+    ctx.ellipse(dir*sz*0.4, sz*0.3, sz*0.6, sz*0.25, dir*0.4, 0, Math.PI*2);
+    ctx.fill();
+
+    // Belly highlight
+    ctx.fillStyle='rgba(255,255,255,0.1)';
+    ctx.beginPath(); ctx.ellipse(dir*sz*0.1,-sz*0.3,sz*1.0,sz*0.28,0,0,Math.PI*2); ctx.fill();
+
+    // Eye
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(dir*sz*0.82,-sz*0.22,sz*0.26,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#111';
+    ctx.beginPath(); ctx.arc(dir*sz*0.85,-sz*0.22,sz*0.15,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.arc(dir*sz*0.88,-sz*0.26,sz*0.07,0,Math.PI*2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* ── Draw: SHRIMP ── */
+  function drawShrimp(ctx, fish, t) {
+    const dir = fish.vx>0?1:-1;
+    fish.phase += fish.speed;
+    fish.legPhase += 0.12;
+    fish.x += fish.vx + Math.sin(fish.legPhase*0.3)*0.2;
+    fish.y += fish.vy + Math.sin(fish.legPhase*0.5)*0.25;
+    const sz = fish.size;
+    const hue=fish.bodyHue, sat=fish.bodySat, lit=fish.bodyLit;
+
+    ctx.save(); ctx.translate(fish.x, fish.y);
+
+    // Body segments (5 segments)
+    for(let seg=0;seg<5;seg++){
+      const sx = -dir*sz*0.35*seg;
+      const sy = Math.sin(fish.phase + seg*0.6)*sz*0.15;
+      const segW = sz*(0.6 - seg*0.07);
+      const segH = sz*(0.35 - seg*0.03);
+      const segAlpha = 0.55 + seg*0.05;
+      ctx.fillStyle=`hsla(${hue+seg*5},${sat}%,${lit}%,${segAlpha})`;
+      ctx.beginPath(); ctx.ellipse(sx,sy,segW,segH,0,0,Math.PI*2); ctx.fill();
+      // Segment line
+      if(seg<4){
+        ctx.strokeStyle=`hsla(${hue},${sat}%,${lit-15}%,0.3)`;
+        ctx.lineWidth=0.5;
+        ctx.beginPath(); ctx.moveTo(sx-dir*segW,sy-segH); ctx.lineTo(sx-dir*segW,sy+segH); ctx.stroke();
+      }
+    }
+
+    // Tail fan
+    for(let tf=-1;tf<=1;tf++){
+      ctx.fillStyle=`hsla(${hue},${sat-10}%,${lit-10}%,0.4)`;
+      ctx.beginPath();
+      ctx.moveTo(-dir*sz*1.9, Math.sin(fish.phase)*sz*0.1);
+      ctx.lineTo(-dir*sz*2.9+tf*sz*0.5, Math.sin(fish.phase)*sz*0.1+tf*sz*0.4);
+      ctx.lineTo(-dir*sz*2.8+tf*sz*0.3, Math.sin(fish.phase)*sz*0.1+tf*sz*0.2);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Walking legs (5 pairs)
+    ctx.strokeStyle=`hsla(${hue},${sat}%,${lit-15}%,0.55)`;
+    ctx.lineWidth=0.7;
+    for(let leg=0;leg<5;leg++){
+      const lx = dir*sz*(0.3 - leg*0.12);
+      const wave = Math.sin(fish.legPhase + leg*0.6)*sz*0.3;
+      ctx.beginPath(); ctx.moveTo(lx, sz*0.2); ctx.lineTo(lx+wave, sz*0.8); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx,-sz*0.2); ctx.lineTo(lx-wave,-sz*0.8); ctx.stroke();
+    }
+
+    // Antennae
+    ctx.strokeStyle=`hsla(${hue},${sat}%,${lit}%,0.6)`;
+    ctx.lineWidth=0.6;
+    const antWave = Math.sin(fish.phase*0.7)*sz*0.4;
+    ctx.beginPath();
+    ctx.moveTo(dir*sz*0.55, -sz*0.2);
+    ctx.quadraticCurveTo(dir*(sz*0.55+fish.antLength*0.4)+antWave, -sz*1.2, dir*(sz*0.55+fish.antLength)+antWave, -sz*0.8);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(dir*sz*0.55, sz*0.1);
+    ctx.quadraticCurveTo(dir*(sz*0.55+fish.antLength*0.4)-antWave, sz*1.2, dir*(sz*0.55+fish.antLength)-antWave, sz*0.8);
+    ctx.stroke();
+
+    // Eye
+    ctx.fillStyle='rgba(50,20,10,0.9)';
+    ctx.beginPath(); ctx.arc(dir*sz*0.55, -sz*0.18, sz*0.18, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,200,180,0.7)';
+    ctx.beginPath(); ctx.arc(dir*sz*0.57, -sz*0.22, sz*0.08, 0, Math.PI*2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* ── Draw: CATFISH ── */
+  function drawCatfish(ctx, fish, t) {
+    const dir = fish.vx>0?1:-1;
+    fish.phase += fish.speed;
+    fish.x += fish.vx; fish.y += fish.vy + Math.sin(fish.phase)*0.12;
+    // Keep near bottom
+    const s = STATE.cctv[Object.keys(STATE.cctv).find(k=>STATE.cctv[k].fish&&STATE.cctv[k].fish.includes(fish))];
+    const sz = fish.size;
+    const hue=fish.bodyHue, sat=fish.bodySat, lit=fish.bodyLit;
+
+    ctx.save(); ctx.translate(fish.x, fish.y);
+
+    // Body — flat elongated
+    const bodyGrd = ctx.createLinearGradient(0,-sz,0,sz*0.8);
+    bodyGrd.addColorStop(0, `hsla(${hue},${sat}%,${lit+5}%,0.92)`);
+    bodyGrd.addColorStop(0.5, `hsla(${hue},${sat}%,${lit}%,0.9)`);
+    bodyGrd.addColorStop(1, `hsla(${hue-5},${sat}%,${lit-8}%,0.85)`);
+    ctx.fillStyle = bodyGrd;
+    ctx.beginPath(); ctx.ellipse(0,sz*0.1,sz*2.5,sz*0.75,0,0,Math.PI*2); ctx.fill();
+
+    // Tail
+    const tailW = Math.sin(fish.phase*1.2)*sz*0.5;
+    ctx.fillStyle=`hsla(${hue},${sat}%,${lit-12}%,0.85)`;
+    ctx.beginPath();
+    ctx.moveTo(-dir*sz*2.0, sz*0.1);
+    ctx.lineTo(-dir*sz*3.0, tailW+sz*0.7);
+    ctx.lineTo(-dir*sz*3.0, tailW-sz*0.5);
+    ctx.closePath(); ctx.fill();
+
+    // Flat head
+    ctx.fillStyle=`hsla(${hue-5},${sat}%,${lit-5}%,0.92)`;
+    ctx.beginPath(); ctx.ellipse(dir*sz*1.5, sz*0.1, sz*1.1, sz*0.65, 0, 0, Math.PI*2); ctx.fill();
+
+    // Barbels (whiskers) - catfish characteristic
+    ctx.strokeStyle=`hsla(${hue-10},${sat}%,${lit-5}%,0.8)`;
+    ctx.lineWidth=0.9;
+    const barbWave = Math.sin(fish.phase*0.8);
+    // 3 pairs of barbels
+    const barbPos = [[dir*sz*2.1,sz*0.05],[dir*sz*1.9,sz*0.3],[dir*sz*1.9,-sz*0.2]];
+    barbPos.forEach(([bx,by],i)=>{
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.quadraticCurveTo(bx+dir*fish.barbLength*0.5+barbWave*2, by+i*sz*0.2, bx+dir*fish.barbLength+barbWave*3, by+sz*0.4+i*sz*0.15);
+      ctx.stroke();
+    });
+
+    // Dorsal fin (stiff spine)
+    ctx.fillStyle=`hsla(${hue},${sat}%,${lit-5}%,0.7)`;
+    ctx.beginPath();
+    ctx.moveTo(dir*sz*0.5, -sz*0.72);
+    ctx.lineTo(dir*sz*0.5+dir*sz*0.4, -sz*0.72-sz*0.7);
+    ctx.lineTo(dir*sz*0.5-dir*sz*0.5, -sz*0.72); ctx.closePath(); ctx.fill();
+
+    // Pectoral fins (prominent)
+    ctx.fillStyle=`hsla(${hue},${sat}%,${lit}%,0.5)`;
+    ctx.beginPath(); ctx.ellipse(dir*sz*0.6, sz*0.55, sz*0.75, sz*0.22, dir*0.5, 0, Math.PI*2); ctx.fill();
+
+    // Belly lighter
+    ctx.fillStyle=`hsla(${hue+10},${sat-5}%,${lit+20}%,0.25)`;
+    ctx.beginPath(); ctx.ellipse(0,sz*0.55,sz*1.8,sz*0.3,0,0,Math.PI*2); ctx.fill();
+
+    // Eye (small, near top of head)
+    ctx.fillStyle='rgba(20,15,10,0.95)';
+    ctx.beginPath(); ctx.arc(dir*sz*2.0,-sz*0.05,sz*0.2,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(dir*sz*2.03,-sz*0.08,sz*0.08,0,Math.PI*2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* ── Draw: PRAWN (Giant River) ── */
+  function drawPrawn(ctx, fish, t) {
+    const dir = fish.vx>0?1:-1;
+    fish.phase += fish.speed;
+    fish.legPhase += 0.09;
+    fish.x += fish.vx + Math.sin(fish.legPhase*0.25)*0.15;
+    fish.y += fish.vy + Math.sin(fish.legPhase*0.4)*0.22;
+    const sz = fish.size;
+    const hue=fish.bodyHue, sat=fish.bodySat, lit=fish.bodyLit;
+    const cHue=fish.clawHue;
+
+    ctx.save(); ctx.translate(fish.x, fish.y);
+
+    // Body segments (6)
+    for(let seg=0;seg<6;seg++){
+      const sx = -dir*sz*0.38*seg + dir*sz*0.8;
+      const sy = Math.sin(fish.phase+seg*0.5)*sz*0.12;
+      const segW = sz*(0.7 - seg*0.07);
+      const segH = sz*(0.38 - seg*0.025);
+      ctx.fillStyle=`hsla(${hue+seg*3},${sat}%,${lit}%,${0.75+seg*0.02})`;
+      ctx.beginPath(); ctx.ellipse(sx,sy,segW,segH,0,0,Math.PI*2); ctx.fill();
+      if(seg<5){
+        ctx.strokeStyle=`hsla(${hue},${sat-10}%,${lit-20}%,0.3)`;
+        ctx.lineWidth=0.4; ctx.beginPath();
+        ctx.moveTo(sx-dir*segW,sy-segH); ctx.lineTo(sx-dir*segW,sy+segH); ctx.stroke();
+      }
+    }
+
+    // Tail fan
+    for(let tf=-2;tf<=2;tf++){
+      ctx.fillStyle=`hsla(${hue+tf*5},${sat}%,${lit-5}%,${0.45-Math.abs(tf)*0.07})`;
+      ctx.beginPath();
+      ctx.moveTo(-dir*sz*1.5, Math.sin(fish.phase)*sz*0.08);
+      ctx.lineTo(-dir*sz*2.6+tf*sz*0.35, Math.sin(fish.phase)*sz*0.08+tf*sz*0.35);
+      ctx.lineTo(-dir*sz*2.4+tf*sz*0.2,  Math.sin(fish.phase)*sz*0.08+tf*sz*0.18);
+      ctx.closePath(); ctx.fill();
+    }
+
+    // Walking legs
+    ctx.strokeStyle=`hsla(${hue-10},${sat}%,${lit-10}%,0.55)`;
+    ctx.lineWidth=0.65;
+    for(let leg=0;leg<5;leg++){
+      const lx = dir*sz*(0.7 - leg*0.28);
+      const wave = Math.sin(fish.legPhase + leg*0.65)*sz*0.28;
+      ctx.beginPath(); ctx.moveTo(lx, sz*0.25); ctx.lineTo(lx+wave, sz*0.9); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(lx,-sz*0.2); ctx.lineTo(lx-wave,-sz*0.9); ctx.stroke();
+    }
+
+    // Signature BLUE CLAWS
+    const clawAngle = fish.clawOpen * 0.6;
+    ctx.save();
+    ctx.translate(dir*sz*1.9, 0);
+    // Upper claw
+    ctx.strokeStyle=`hsla(${cHue},65%,55%,0.9)`; ctx.lineWidth=sz*0.22;
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(dir*sz*0.9, -sz*0.5-clawAngle*sz);
+    ctx.stroke();
+    // Lower claw
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.lineTo(dir*sz*0.9, sz*0.4+clawAngle*sz);
+    ctx.stroke();
+    // Claw tips
+    ctx.fillStyle=`hsla(${cHue+15},70%,45%,0.95)`;
+    ctx.beginPath(); ctx.arc(dir*sz*0.9,-sz*0.5-clawAngle*sz, sz*0.28,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(dir*sz*0.9,sz*0.4+clawAngle*sz, sz*0.28,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+
+    // Long antennae
+    ctx.strokeStyle=`hsla(${hue+10},${sat}%,${lit+10}%,0.55)`;
+    ctx.lineWidth=0.55;
+    const antW = Math.sin(fish.phase*0.6)*sz*0.5;
+    ctx.beginPath();
+    ctx.moveTo(dir*sz*2.0, -sz*0.25);
+    ctx.quadraticCurveTo(dir*(sz*2.0+fish.antLength*0.5)+antW*1.5, -sz*1.8, dir*(sz*2.0+fish.antLength)+antW*2, -sz);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(dir*sz*2.0, sz*0.2);
+    ctx.quadraticCurveTo(dir*(sz*2.0+fish.antLength*0.5)-antW*1.5, sz*1.8, dir*(sz*2.0+fish.antLength)-antW*2, sz);
+    ctx.stroke();
+
+    // Rostrum (pointy spike)
+    ctx.fillStyle=`hsla(${hue},${sat}%,${lit-5}%,0.85)`;
+    ctx.beginPath();
+    ctx.moveTo(dir*sz*2.1, -sz*0.08);
+    ctx.lineTo(dir*(sz*2.1+sz*0.8), -sz*0.08);
+    ctx.lineTo(dir*(sz*2.1+sz*0.5), sz*0.08);
+    ctx.closePath(); ctx.fill();
+
+    // Eyes (stalked)
+    ctx.fillStyle='rgba(0,0,0,0.9)';
+    ctx.beginPath(); ctx.arc(dir*sz*2.1,-sz*0.32,sz*0.22,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,220,150,0.8)';
+    ctx.beginPath(); ctx.arc(dir*sz*2.13,-sz*0.36,sz*0.09,0,Math.PI*2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* ── Draw: DORY (Blue Tang — disc-shaped, distinctive yellow tail) ── */
+  function drawDory(ctx, fish, t) {
+    const dir = fish.vx>0?1:-1;
+    const sz  = fish.size;
+    fish.phase += fish.speed;
+    fish.x += fish.vx; fish.y += fish.vy + Math.sin(fish.phase)*0.32;
+    const hue=fish.bodyHue, sat=fish.bodySat, lit=fish.bodyLit;
+
+    ctx.save(); ctx.translate(fish.x, fish.y);
+
+    // Glow aura (cooler blue tone)
+    const glow = ctx.createRadialGradient(0,0,0,0,0,sz*3.5);
+    glow.addColorStop(0, `hsla(${hue},${sat}%,${lit+15}%,0.12)`);
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(0,0,sz*3.5,0,Math.PI*2); ctx.fill();
+
+    // Bright YELLOW caudal (tail) — Blue Tang signature
+    const tailWave = Math.sin(fish.phase*1.6)*sz*0.4;
+    ctx.fillStyle = 'hsla(48, 95%, 58%, 0.95)';
+    ctx.beginPath();
+    ctx.moveTo(-dir*sz*1.3, 0);
+    ctx.lineTo(-dir*sz*2.2, tailWave - sz*1.0);
+    ctx.lineTo(-dir*sz*1.9, 0);
+    ctx.lineTo(-dir*sz*2.2, tailWave + sz*1.0);
+    ctx.closePath(); ctx.fill();
+    // tail dark outline
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 0.8; ctx.stroke();
+
+    // Disc-shaped body — almost as tall as wide (NOT elongated)
+    const bodyGrd = ctx.createRadialGradient(-dir*sz*0.2,-sz*0.3,0,0,0,sz*2.0);
+    bodyGrd.addColorStop(0,   `hsla(${hue},${sat-10}%,${lit+22}%,0.95)`);
+    bodyGrd.addColorStop(0.5, `hsla(${hue},${sat}%,${lit}%,0.95)`);
+    bodyGrd.addColorStop(1,   `hsla(${hue+10},${sat}%,${lit-18}%,0.95)`);
+    ctx.fillStyle = bodyGrd;
+    ctx.beginPath(); ctx.ellipse(0,0,sz*1.6,sz*1.35,0,0,Math.PI*2); ctx.fill();
+
+    // Signature BLACK "palette" curve — runs from behind eye to tail
+    ctx.save();
+    ctx.fillStyle = 'rgba(8, 12, 30, 0.75)';
+    ctx.beginPath();
+    ctx.moveTo(dir*sz*0.55, -sz*0.55);
+    ctx.quadraticCurveTo(dir*sz*0.1,  -sz*1.05, -dir*sz*0.6, -sz*0.85);
+    ctx.quadraticCurveTo(-dir*sz*1.0,  -sz*0.4, -dir*sz*1.1,  sz*0.2);
+    ctx.quadraticCurveTo(-dir*sz*0.55, sz*0.05, -dir*sz*0.2, -sz*0.15);
+    ctx.quadraticCurveTo( dir*sz*0.2, -sz*0.3,  dir*sz*0.55, -sz*0.55);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    // Top dorsal fin (long, low arc)
+    ctx.fillStyle=`hsla(${hue},${sat}%,${lit-12}%,0.9)`;
+    ctx.beginPath();
+    ctx.moveTo(-sz*1.0,-sz*1.3);
+    for(let i=0;i<=8;i++){
+      const bx = -sz*1.0 + (sz*2.0*i/8);
+      const by = -sz*1.3 - Math.abs(Math.sin(Math.PI*i/8))*sz*0.35;
+      ctx.lineTo(bx,by);
+    }
+    ctx.lineTo(sz*1.0,-sz*1.3); ctx.closePath(); ctx.fill();
+
+    // Bottom anal fin (mirror)
+    ctx.fillStyle=`hsla(${hue},${sat}%,${lit-12}%,0.85)`;
+    ctx.beginPath();
+    ctx.moveTo(-sz*0.7, sz*1.25);
+    for(let i=0;i<=6;i++){
+      const bx = -sz*0.7 + (sz*1.6*i/6);
+      const by = sz*1.25 + Math.abs(Math.sin(Math.PI*i/6))*sz*0.32;
+      ctx.lineTo(bx,by);
+    }
+    ctx.lineTo(sz*0.9, sz*1.25); ctx.closePath(); ctx.fill();
+
+    // Pectoral fin (yellow, small)
+    ctx.fillStyle = 'hsla(48, 90%, 55%, 0.78)';
+    ctx.beginPath();
+    ctx.ellipse(dir*sz*0.5, sz*0.45, sz*0.42, sz*0.2, dir*0.5, 0, Math.PI*2);
+    ctx.fill();
+
+    // Forehead highlight
+    ctx.fillStyle='rgba(255,255,255,0.18)';
+    ctx.beginPath(); ctx.ellipse(dir*sz*0.4,-sz*0.7,sz*0.7,sz*0.18,dir*0.3,0,Math.PI*2); ctx.fill();
+
+    // Small eye (more forward & higher)
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(dir*sz*0.95, -sz*0.25, sz*0.2, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#0a0a0f';
+    ctx.beginPath(); ctx.arc(dir*sz*1.0, -sz*0.25, sz*0.13, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.9)';
+    ctx.beginPath(); ctx.arc(dir*sz*1.04, -sz*0.3, sz*0.06, 0, Math.PI*2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* ── Draw: CLOWNFISH (Nemo — chubby oval + 3 white bands w/ black borders) ── */
+  function drawClownfish(ctx, fish, t) {
+    const dir = fish.vx>0?1:-1;
+    const sz  = fish.size;
+    fish.phase += fish.speed;
+    fish.x += fish.vx; fish.y += fish.vy + Math.sin(fish.phase)*0.3;
+    const hue=fish.bodyHue, sat=fish.bodySat, lit=fish.bodyLit;
+
+    ctx.save(); ctx.translate(fish.x, fish.y);
+
+    // Glow aura (warm)
+    const glow = ctx.createRadialGradient(0,0,0,0,0,sz*3.5);
+    glow.addColorStop(0, `hsla(${hue},${sat}%,${lit+15}%,0.14)`);
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle=glow; ctx.beginPath(); ctx.arc(0,0,sz*3.5,0,Math.PI*2); ctx.fill();
+
+    // Tail — orange with black edge
+    const tailWave = Math.sin(fish.phase*1.5)*sz*0.45;
+    ctx.fillStyle = `hsla(${hue},${sat}%,${lit-8}%,0.95)`;
+    ctx.beginPath();
+    ctx.moveTo(-dir*sz*1.0, 0);
+    ctx.lineTo(-dir*sz*1.95, tailWave - sz*0.85);
+    ctx.lineTo(-dir*sz*1.95, tailWave + sz*0.85);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(10,10,15,0.7)'; ctx.lineWidth = 1.0; ctx.stroke();
+
+    // Plump rounded body — shorter than tilapia (1.5 vs 2.0)
+    const bodyGrd = ctx.createRadialGradient(-dir*sz*0.2,-sz*0.25,0,0,0,sz*2.0);
+    bodyGrd.addColorStop(0,   `hsla(${hue},${sat}%,${lit+20}%,0.97)`);
+    bodyGrd.addColorStop(0.6, `hsla(${hue},${sat}%,${lit}%,0.96)`);
+    bodyGrd.addColorStop(1,   `hsla(${hue-5},${sat}%,${lit-18}%,0.95)`);
+    ctx.fillStyle = bodyGrd;
+    ctx.beginPath(); ctx.ellipse(0,0,sz*1.5,sz*1.05,0,0,Math.PI*2); ctx.fill();
+
+    // 3 signature WHITE vertical bands with thin black borders
+    const bandPositions = [-sz*0.85, sz*0.0, sz*0.85];
+    bandPositions.forEach((bx,i) => {
+      const bw = i===1 ? sz*0.32 : sz*0.26;          // middle band slightly wider
+      const bh = sz*1.0 * (1 - Math.abs(bx)/(sz*1.7))*0.95;  // shorter at edges (follows body curve)
+      // Black outer edge
+      ctx.fillStyle = 'rgba(8, 8, 12, 0.85)';
+      ctx.fillRect(bx*dir - bw/2 - 1.2, -bh, bw + 2.4, bh*2);
+      // White center
+      ctx.fillStyle = 'rgba(248, 250, 255, 0.95)';
+      ctx.fillRect(bx*dir - bw/2, -bh*0.97, bw, bh*1.94);
+    });
+
+    // Top dorsal fin — black-edged orange spikes
+    ctx.fillStyle=`hsla(${hue},${sat}%,${lit-10}%,0.92)`;
+    ctx.beginPath();
+    ctx.moveTo(-sz*0.9,-sz*0.95);
+    for(let i=0;i<=5;i++){
+      const bx = -sz*0.9 + (sz*1.8*i/5);
+      const by = -sz*0.95 - Math.abs(Math.sin(Math.PI*i/5))*sz*0.5;
+      ctx.lineTo(bx,by);
+    }
+    ctx.lineTo(sz*0.9,-sz*0.95); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(10,10,15,0.6)'; ctx.lineWidth=0.7; ctx.stroke();
+
+    // Bottom pelvic + anal fin
+    ctx.fillStyle=`hsla(${hue},${sat}%,${lit-8}%,0.85)`;
+    ctx.beginPath();
+    ctx.ellipse(-sz*0.1, sz*1.0, sz*0.55, sz*0.32, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle='rgba(10,10,15,0.5)'; ctx.lineWidth=0.6; ctx.stroke();
+
+    // Pectoral fin — chunky orange
+    ctx.fillStyle = `hsla(${hue},${sat}%,${lit-5}%,0.78)`;
+    ctx.beginPath();
+    ctx.ellipse(dir*sz*0.45, sz*0.35, sz*0.5, sz*0.22, dir*0.4, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle='rgba(10,10,15,0.55)'; ctx.lineWidth=0.7; ctx.stroke();
+
+    // Big expressive eye — clownfish trademark
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(dir*sz*0.85, -sz*0.2, sz*0.32, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle='rgba(10,10,15,0.85)'; ctx.lineWidth=1.0; ctx.stroke();
+    ctx.fillStyle='#0a0a0f';
+    ctx.beginPath(); ctx.arc(dir*sz*0.92, -sz*0.2, sz*0.18, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.95)';
+    ctx.beginPath(); ctx.arc(dir*sz*0.96, -sz*0.26, sz*0.08, 0, Math.PI*2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  /* ── Router: which draw fn to call ── */
+  function drawFish(ctx, fish, t) {
+    switch(fish.type) {
+      case 'tilapia':   drawTilapia(ctx, fish, t); break;
+      case 'shrimp':    drawShrimp(ctx, fish, t); break;
+      case 'catfish':   drawCatfish(ctx, fish, t); break;
+      case 'prawn':     drawPrawn(ctx, fish, t); break;
+      case 'dory':      drawDory(ctx, fish, t); break;
+      case 'clownfish': drawClownfish(ctx, fish, t); break;
+      default:          drawTilapia(ctx, fish, t);
+    }
+  }
+
+  /* ── Boundary check (species-specific zones) ── */
+  function boundCheck(fish, W, H) {
+    if(fish.x < -fish.size*4) fish.x = W + fish.size*3;
+    if(fish.x > W + fish.size*4) fish.x = -fish.size*3;
+    if(fish.type==='catfish') {
+      // Stay in bottom 55%
+      if(fish.y < H*0.5) { fish.vy += 0.15; }
+      if(fish.y > H-16)  { fish.vy -= 0.2; }
+    } else {
+      if(fish.y < 22)    { fish.vy = Math.abs(fish.vy)*0.8+0.12; }
+      if(fish.y > H-22)  { fish.vy = -Math.abs(fish.vy)*0.8-0.12; }
+    }
+    // Clamp vy
+    fish.vy = Math.max(-0.55, Math.min(0.55, fish.vy));
+  }
+
+  /* ── Environment renderer (plants, rocks, driftwood per species) ── */
+  function drawEnvironment(ctx, W, H, t, envKind) {
+    if (!envKind) return;
+    ctx.save();
+    const baseY = H - 14;  // ด้านบนของพื้นทราย
+
+    if (envKind === 'freshwater_plants') {
+      // สาหร่าย + ต้นไม้น้ำเขียวเข้ม (Tilapia)
+      const plants = [
+        {x: W*0.10, h: 68, w: 4, hue: 110, sway: 1.0},
+        {x: W*0.28, h: 52, w: 3, hue: 120, sway: 0.8},
+        {x: W*0.52, h: 80, w: 5, hue: 100, sway: 1.2},
+        {x: W*0.72, h: 60, w: 4, hue: 115, sway: 0.9},
+        {x: W*0.90, h: 45, w: 3, hue: 125, sway: 0.7},
+      ];
+      plants.forEach(p => {
+        const sway = Math.sin(t*0.03 + p.x*0.1) * p.sway * 3;
+        ctx.strokeStyle = `hsla(${p.hue},55%,25%,0.85)`;
+        ctx.lineWidth = p.w;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(p.x, baseY);
+        ctx.quadraticCurveTo(p.x + sway, baseY - p.h*0.5, p.x + sway*1.5, baseY - p.h);
+        ctx.stroke();
+        // leaves
+        for (let i = 1; i <= 3; i++) {
+          const ly = baseY - p.h * (i/3.5);
+          const lx = p.x + sway * (i/3);
+          ctx.fillStyle = `hsla(${p.hue+10},60%,30%,0.7)`;
+          ctx.beginPath();
+          ctx.ellipse(lx+3, ly, 5, 2, 0.4, 0, Math.PI*2);
+          ctx.ellipse(lx-3, ly, 5, 2, -0.4, 0, Math.PI*2);
+          ctx.fill();
+        }
+      });
+    }
+    else if (envKind === 'bright_plants') {
+      // พืชใบแดง-เขียวสด (Red Tilapia)
+      const plants = [
+        {x: W*0.08, h: 70, hue: 340, w: 4},
+        {x: W*0.30, h: 55, hue: 130, w: 3},
+        {x: W*0.56, h: 85, hue: 20,  w: 5},
+        {x: W*0.78, h: 62, hue: 140, w: 4},
+        {x: W*0.93, h: 50, hue: 350, w: 3},
+      ];
+      plants.forEach(p => {
+        const sway = Math.sin(t*0.035 + p.x*0.1) * 3;
+        ctx.strokeStyle = `hsla(${p.hue},60%,35%,0.8)`;
+        ctx.lineWidth = p.w;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(p.x, baseY);
+        ctx.quadraticCurveTo(p.x + sway, baseY - p.h*0.5, p.x + sway*1.5, baseY - p.h);
+        ctx.stroke();
+        // ใบแฉก
+        for (let i = 1; i <= 4; i++) {
+          const ly = baseY - p.h * (i/4.5);
+          const lx = p.x + sway * (i/3);
+          ctx.fillStyle = `hsla(${p.hue},65%,40%,0.75)`;
+          ctx.beginPath();
+          ctx.ellipse(lx+4, ly, 6, 2.5, 0.3, 0, Math.PI*2);
+          ctx.ellipse(lx-4, ly, 6, 2.5, -0.3, 0, Math.PI*2);
+          ctx.fill();
+        }
+      });
+    }
+    else if (envKind === 'shrimp_substrate') {
+      // เปลือกหอย + กรวดสำหรับกุ้งขาว
+      const shells = [
+        {x: W*0.12, y: baseY-3, r: 6, hue: 30},
+        {x: W*0.35, y: baseY-2, r: 4, hue: 20},
+        {x: W*0.60, y: baseY-4, r: 8, hue: 35},
+        {x: W*0.82, y: baseY-2, r: 5, hue: 25},
+        {x: W*0.92, y: baseY-3, r: 6, hue: 15},
+      ];
+      shells.forEach(s => {
+        ctx.fillStyle = `hsla(${s.hue},30%,70%,0.85)`;
+        ctx.beginPath();
+        ctx.ellipse(s.x, s.y, s.r, s.r*0.55, 0, 0, Math.PI);
+        ctx.fill();
+        // ลายเปลือก
+        ctx.strokeStyle = `hsla(${s.hue},25%,55%,0.6)`;
+        ctx.lineWidth = 0.5;
+        for (let i = 1; i <= 3; i++) {
+          ctx.beginPath();
+          ctx.ellipse(s.x, s.y, s.r * (i/4), s.r*0.55 * (i/4), 0, 0, Math.PI);
+          ctx.stroke();
+        }
+      });
+      // สาหร่ายสั้นๆ
+      for (let i = 0; i < 6; i++) {
+        const gx = (W/7)*(i+1);
+        const gh = 15 + Math.sin(i+t*0.02)*4;
+        ctx.strokeStyle = 'hsla(140,50%,35%,0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(gx, baseY);
+        ctx.lineTo(gx + Math.sin(t*0.04+i)*2, baseY - gh);
+        ctx.stroke();
+      }
+    }
+    else if (envKind === 'driftwood') {
+      // ขอนไม้ + ใบไม้ร่วงสำหรับปลาดุก
+      // ขอนไม้ใหญ่ด้านล่าง
+      ctx.fillStyle = 'hsla(25,40%,20%,0.92)';
+      ctx.beginPath();
+      ctx.ellipse(W*0.3, baseY-8, 60, 10, -0.08, 0, Math.PI*2);
+      ctx.fill();
+      ctx.strokeStyle = 'hsla(25,30%,15%,0.9)';
+      ctx.lineWidth = 0.8;
+      for (let i = -2; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.ellipse(W*0.3, baseY-8, 60 + i*2, 10 - Math.abs(i), -0.08, 0, Math.PI*2);
+        ctx.stroke();
+      }
+      // ขอนไม้เล็กด้านขวา
+      ctx.fillStyle = 'hsla(22,45%,22%,0.88)';
+      ctx.beginPath();
+      ctx.ellipse(W*0.78, baseY-5, 40, 7, 0.12, 0, Math.PI*2);
+      ctx.fill();
+      // ใบไม้ร่วงลอย
+      for (let i = 0; i < 5; i++) {
+        const lx = (i*W/5 + t*0.05) % W;
+        const ly = baseY - 2 - i*0.5;
+        ctx.fillStyle = `hsla(${28+i*5},50%,25%,0.75)`;
+        ctx.beginPath();
+        ctx.ellipse(lx, ly, 4, 1.8, Math.sin(t*0.02+i), 0, Math.PI*2);
+        ctx.fill();
+      }
+      // สาหร่ายเบาๆ
+      for (let i = 0; i < 4; i++) {
+        const gx = W*0.1 + i*W*0.23;
+        const gh = 25 + Math.sin(t*0.02+i)*5;
+        ctx.strokeStyle = 'hsla(80,40%,25%,0.6)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(gx, baseY);
+        ctx.quadraticCurveTo(gx + Math.sin(t*0.03+i)*4, baseY - gh*0.5, gx + Math.sin(t*0.03+i)*8, baseY - gh);
+        ctx.stroke();
+      }
+    }
+    else if (envKind === 'rocks_plants') {
+      // ก้อนหินใหญ่ + พันธุ์ไม้สำหรับกุ้งก้ามกราม
+      const rocks = [
+        {x: W*0.2, y: baseY-6, rx: 28, ry: 12, hue: 210, lit: 22},
+        {x: W*0.5, y: baseY-4, rx: 20, ry: 9,  hue: 220, lit: 18},
+        {x: W*0.8, y: baseY-7, rx: 32, ry: 14, hue: 215, lit: 25},
+      ];
+      rocks.forEach(r => {
+        const grd = ctx.createLinearGradient(r.x, r.y-r.ry, r.x, r.y+r.ry);
+        grd.addColorStop(0, `hsla(${r.hue},20%,${r.lit+12}%,0.95)`);
+        grd.addColorStop(1, `hsla(${r.hue},18%,${r.lit-8}%,0.95)`);
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.ellipse(r.x, r.y, r.rx, r.ry, 0, 0, Math.PI*2);
+        ctx.fill();
+        // highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.beginPath();
+        ctx.ellipse(r.x - r.rx*0.3, r.y - r.ry*0.5, r.rx*0.4, r.ry*0.3, 0, 0, Math.PI*2);
+        ctx.fill();
+      });
+      // พันธุ์ไม้โผล่ระหว่างหิน
+      [W*0.1, W*0.35, W*0.65, W*0.92].forEach((px,i) => {
+        const sway = Math.sin(t*0.028 + i) * 3;
+        const h = 45 + i*4;
+        ctx.strokeStyle = 'hsla(120,55%,30%,0.8)';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(px, baseY);
+        ctx.quadraticCurveTo(px+sway, baseY-h*0.5, px+sway*1.5, baseY-h);
+        ctx.stroke();
+      });
+    }
+    ctx.restore();
+  }
+
+  /* ── Particle systems ── */
+  function drawMudParticles(ctx, W, H, t) {
+    ctx.save();
+    for(let i=0;i<8;i++){
+      const px = (W*0.15*i + Math.sin(t*0.02+i)*20) % W;
+      const py = H - 8 - Math.random()*6;
+      ctx.fillStyle=`rgba(60,40,20,${0.2+Math.random()*0.15})`;
+      ctx.beginPath(); ctx.arc(px, py, 1.5+Math.random()*2, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /* ── CCTV HUD overlay (canvas-drawn) ── */
+  function drawHUD(ctx, W, H, t, channelId, status) {
+    // Scanline
+    const scanY = (t*1.2) % (H*1.15) - H*0.1;
+    const scanGrd = ctx.createLinearGradient(0,scanY-3,0,scanY+3);
+    scanGrd.addColorStop(0,'transparent');
+    scanGrd.addColorStop(0.5,'rgba(0,200,255,0.04)');
+    scanGrd.addColorStop(1,'transparent');
+    ctx.fillStyle=scanGrd; ctx.fillRect(0,scanY-3,W,6);
+
+    // Corner brackets
+    const C=0.38, cSize=14;
+    ctx.strokeStyle=`rgba(0,200,255,${C+Math.sin(t*0.05)*0.05})`; ctx.lineWidth=1.5;
+    [[8,8,1,1],[W-8,8,-1,1],[8,H-8,1,-1],[W-8,H-8,-1,-1]].forEach(([cx,cy,dx,dy])=>{
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+dx*cSize,cy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx,cy+dy*cSize); ctx.stroke();
+    });
+
+    // Center crosshair
+    ctx.strokeStyle='rgba(0,200,255,0.07)'; ctx.lineWidth=0.8;
+    ctx.beginPath(); ctx.moveTo(W/2-12,H/2); ctx.lineTo(W/2+12,H/2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W/2,H/2-8); ctx.lineTo(W/2,H/2+8); ctx.stroke();
+    ctx.strokeStyle='rgba(0,200,255,0.12)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(W/2,H/2,4,0,Math.PI*2); ctx.stroke();
+
+    // SIMULATION watermark — ซ่อนไว้ ระบบดูปกติ เว้นแต่ simulator กำลัง inject failure
+    const _simFails = (() => { try { return Object.keys(JSON.parse(localStorage.getItem('aquaos_device_failures_v2')||'{}')).length > 0; } catch { return false; } })();
+    if (_simFails) {
+      ctx.save();
+      const pulse = 0.45 + Math.sin(t*0.05)*0.15;
+      ctx.font = `bold ${Math.max(9, H*0.05)}px 'Share Tech Mono', monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillStyle = `rgba(255,180,60,${pulse})`;
+      ctx.fillText('◈ SIMULATION — FAULT ACTIVE ◈', W/2, H - 5);
+      ctx.restore();
+    }
+  }
+
+  /* ── INIT & ANIMATE ──
+     opts: { scale: 1.0 (default) / 1.8 (cinematic), dpr: 1 }
+  */
+  function init(tid, canvas, speciesName, opts) {
+    opts = opts || {};
+    const scale = opts.scale || 1;
+    const dpr = opts.dpr || window.devicePixelRatio || 1;
+
+    const ctx = canvas.getContext('2d');
+    const cssW = canvas.offsetWidth  || 420;
+    const cssH = canvas.offsetHeight || 220;
+    // ใช้ DPR เพื่อให้ภาพคมในโหมดเต็มจอ
+    canvas.width  = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = cssW, H = cssH;
+
+    // Determine species profile (รองรับ key ตรงหรือ raw species string)
+    const profileKey = SPECIES_PROFILES[speciesName]
+      ? speciesName
+      : speciesToProfile(speciesName);
+    const profile = SPECIES_PROFILES[profileKey];
+
+    // ปรับจำนวนปลาและขนาดตาม scale (ขยายเวลาเปิดโมดัล)
+    const fishCount = Math.round(profile.fishCount * (scale >= 1.5 ? 1.0 : 1.0));
+    const fish = Array.from({length: fishCount}, () => {
+      const f = profile.mkFish(W, H);
+      f.size = f.size * scale;
+      return f;
+    });
+
+    STATE.cctv[tid] = {
+      ctx, W, H, fish, bubbles:[], t:0, status:'normal',
+      profile, tint: profile.waterTint, opacity: profile.waterOpacity,
+      scale, speciesName: profileKey,
+    };
+    animate(tid, canvas);
+  }
+
+  function animate(tid, canvas) {
+    const s = STATE.cctv[tid]; if(!s) return;
+    const {ctx, W, H, profile} = s;
+    s.t++;
+
+    // Background
+    drawBg(ctx, W, H, s.t, s.tint, s.opacity, s.status);
+
+    // Environment (plants, rocks, driftwood)
+    drawEnvironment(ctx, W, H, s.t, profile.environment);
+
+    // Particles
+    if(profile.particles === 'mud') drawMudParticles(ctx, W, H, s.t);
+
+    // Fish
+    s.fish.forEach(fish => {
+      drawFish(ctx, fish, s.t);
+      boundCheck(fish, W, H);
+    });
+
+    // Bubbles
+    if(s.t % (profile.particles==='mud'?18:10) === 0) s.bubbles.push(mkBubble(W,H));
+    s.bubbles.forEach((b,idx)=>{
+      b.y -= b.vy; b.x += Math.sin(s.t*0.05+idx*1.3)*0.3; b.life -= 0.007;
+      if(b.y < -8 || b.life <= 0){ s.bubbles.splice(idx,1); return; }
+      ctx.save();
+      ctx.globalAlpha = b.life*0.5;
+      ctx.strokeStyle='rgba(170,225,255,0.7)'; ctx.lineWidth=0.85;
+      ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,0.25)';
+      ctx.beginPath(); ctx.arc(b.x-b.r*0.28,b.y-b.r*0.28,b.r*0.35,0,Math.PI*2); ctx.fill();
+      ctx.restore();
+    });
+
+    // HUD
+    drawHUD(ctx, W, H, s.t, tid, s.status);
+
+    STATE.cctvRAF[tid] = requestAnimationFrame(()=>animate(tid,canvas));
+  }
+
+  return {init};
+})();
+
+/* ── SPARKLINE ── */
+function drawSparkline(cv,data,col) {
+  if(!cv||data.length<2) return;
+  const W=cv.offsetWidth||380, H=cv.offsetHeight||30;
+  cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const mn=Math.min(...data)-0.5, mx=Math.max(...data)+0.5;
+  const rng=mx-mn||1, step=W/(data.length-1);
+  const pts=data.map((v,i)=>({x:i*step,y:H-((v-mn)/rng)*(H-4)-2}));
+  const grd=ctx.createLinearGradient(0,0,0,H);
+  grd.addColorStop(0,col.replace(')',',0.22)').replace('rgb','rgba'));
+  grd.addColorStop(1,col.replace(')',',0)').replace('rgb','rgba'));
+  ctx.beginPath(); ctx.moveTo(pts[0].x,H);
+  pts.forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.lineTo(pts[pts.length-1].x,H); ctx.closePath();
+  ctx.fillStyle=grd; ctx.fill();
+  ctx.beginPath();
+  pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle=col; ctx.lineWidth=1.8; ctx.lineJoin='round'; ctx.stroke();
+  const last=pts[pts.length-1];
+  ctx.beginPath(); ctx.arc(last.x,last.y,3,0,Math.PI*2);
+  ctx.fillStyle=col; ctx.fill();
+}
+
+/* ── WATER QUALITY SCORE ── */
+function calcScore(sensor,sets) {
+  if(!sensor) return 0;
+  const d=CFG.DEFAULTS;
+  const mn=sets?.min_temp??d.min_temp, mx=sets?.max_temp??d.max_temp, tgt=sets?.target_temp??d.target_temp;
+  const tph=sets?.trigger_ph??d.trigger_ph, tturb=sets?.trigger_turbidity??d.trigger_turbidity;
+  const tDev=Math.abs(sensor.temperature-tgt), tRng=mx-mn||4;
+  const tS=Math.max(0,100-(tDev/(tRng/2))*100);
+  const pS=sensor.ph_level<=tph?Math.min(100,100-Math.max(0,(sensor.ph_level-6)/(tph-6)-0.7)*333):0;
+  const turS=sensor.turbidity<=tturb?Math.max(0,100-(sensor.turbidity/tturb)*60):0;
+  const wl=sensor.water_level;
+  const wS=wl>=80?100:wl>=50?(wl-50)/30*60+40:Math.max(0,wl/50*40);
+  return Math.min(100,Math.max(0,Math.round(tS*0.35+pS*0.25+turS*0.2+wS*0.2)));
+}
+
+function drawScoreArc(cvId,score) {
+  const cv=document.getElementById(cvId); if(!cv) return;
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,cx=W/2,cy=H-4,r=Math.min(W,H*1.8)*0.44;
+  ctx.clearRect(0,0,W,H);
+  ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI,0);
+  ctx.strokeStyle='#112238'; ctx.lineWidth=9; ctx.lineCap='round'; ctx.stroke();
+  const col=score>=80?'#00e87c':score>=60?'#ffa726':'#ff3d3d';
+  ctx.beginPath(); ctx.arc(cx,cy,r,Math.PI,Math.PI+Math.PI*(score/100));
+  ctx.strokeStyle=col; ctx.lineWidth=9; ctx.shadowBlur=10; ctx.shadowColor=col; ctx.stroke();
+  ctx.shadowBlur=0;
+}
+
+/* ── DOM HELPERS ── */
+const updateEl=(id,txt)=>{const e=document.getElementById(id);if(e&&e.textContent!==String(txt))e.textContent=String(txt);};
+const setClass=(el,cls)=>{if(el&&el.className!==cls)el.className=cls;};
+
+/* ── BUILD CARD HTML ── */
+function buildGrid(tanks) {
+  const grid=document.getElementById('tank-grid');
+  grid.innerHTML='';
+  tanks.forEach(tank=>{
+    const id=tank.tank_id;
+    // ใช้ species จริงจาก DB ถ้ามี ไม่งั้น fallback ไป positional
+    // รวม tank_name + species กันพลาด — tank_id=5 มี species='Tilapia' แต่ชื่อ 'Red Tilapia' ต้อง match 'red tilapia' ก่อน
+    const rawSpecies = ((tank.tank_name || '') + ' ' + (tank.species || '')).trim();
+    const profileKey = rawSpecies ? speciesToProfile(rawSpecies) : (CFG.TANK_SPECIES[(id-1)%CFG.TANK_SPECIES.length] || 'NILE TILAPIA');
+    const sp = profileKey;
+    const card=document.createElement('div');
+    card.className='tank-card'; card.id=`card-${id}`;
+    card.innerHTML=`
+      <div class="cctv-wrap" style="cursor:pointer;" onclick="openCCTVModal(${id})" title="คลิกเพื่อดูแบบเต็มจอ">
+        <canvas class="cctv-canvas" id="cctv-${id}"></canvas>
+        <div class="cctv-depth-lines"></div>
+        <div class="cctv-hud">
+          <div class="cctv-rec"><div class="rec-dot"></div>REC</div>
+          <div class="cctv-id">CH-${String(id).padStart(2,'0')} / HD</div>
+          <div class="cctv-species-tag" id="species-tag-${id}">${sp}</div>
+          <div class="cctv-ts" id="cctv-ts-${id}">—</div>
+          <div class="cctv-sensor-bar" id="cctv-chips-${id}">
+            <div class="cctv-sensor-chip"><span class="cctv-chip-label">TEMP</span><span class="cctv-chip-val" id="chip-temp-${id}">—</span></div>
+            <div class="cctv-sensor-chip"><span class="cctv-chip-label">pH</span><span class="cctv-chip-val" id="chip-ph-${id}">—</span></div>
+            <div class="cctv-sensor-chip"><span class="cctv-chip-label">TURB</span><span class="cctv-chip-val" id="chip-turb-${id}">—</span></div>
+          </div>
+        </div>
+        <button class="cctv-fullscreen-btn" onclick="event.stopPropagation();openCCTVModal(${id})" title="เต็มจอ">⛶</button>
+        <div class="offline-overlay" id="offline-ovl-${id}">NODE OFFLINE</div>
+      </div>
+      <div class="card-body-tank">
+        <div class="card-head-tank">
+          <div class="card-tank-info">
+            <div class="tank-name" id="tname-${id}">—</div>
+            <div class="tank-meta">SA-${String(id).padStart(2,'0')} &nbsp;|&nbsp; ${sp}</div>
+          </div>
+          <div class="badge badge-offline" id="badge-${id}">INIT</div>
+        </div>
+        <div class="device-badges" id="dev-badges-${id}">
+          <span class="dev-badge" id="devb-pump-${id}"   data-type="pump">⚙ PUMP</span>
+          <span class="dev-badge" id="devb-feeder-${id}" data-type="feeder">🐟 FEEDER</span>
+          <span class="dev-badge" id="devb-cctv-${id}"   data-type="cctv">📹 CCTV</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-cell" id="mcell-temp-${id}">
+            <div class="metric-label">TEMPERATURE</div>
+            <div class="metric-value" id="mval-temp-${id}">—</div>
+            <span class="metric-unit">°C</span>
+          </div>
+          <div class="metric-cell" id="mcell-ph-${id}">
+            <div class="metric-label">pH LEVEL</div>
+            <div class="metric-value" id="mval-ph-${id}">—</div>
+            <span class="metric-unit">pH</span>
+          </div>
+          <div class="metric-cell" id="mcell-turb-${id}">
+            <div class="metric-label">TURBIDITY</div>
+            <div class="metric-value" id="mval-turb-${id}">—</div>
+            <span class="metric-unit">NTU</span>
+          </div>
+          <div class="metric-cell" id="mcell-water-${id}">
+            <div class="metric-label">WATER LEVEL</div>
+            <div class="metric-value" id="mval-water-${id}">—</div>
+            <span class="metric-unit">%</span>
+          </div>
+        </div>
+        <div class="water-bar-wrap">
+          <div class="water-bar-head">
+            <span class="water-bar-label">▸ WATER LEVEL</span>
+            <span class="water-bar-val" id="wbar-val-${id}">— %</span>
+          </div>
+          <div class="water-bar-track"><div class="water-bar-fill" id="wbar-fill-${id}"></div></div>
+        </div>
+        <div class="sparkline-wrap"><canvas class="sparkline-canvas" id="spark-${id}"></canvas></div>
+        <div class="alert-strip" id="alert-strip-${id}"></div>
+      </div>
+      <div class="score-strip">
+        <div class="score-arc-wrap">
+          <canvas id="score-arc-${id}" width="84" height="46"></canvas>
+          <span id="score-val-${id}" style="position:absolute;bottom:2px;left:50%;transform:translateX(-50%);font-family:var(--f-mono);font-size:0.78rem;font-weight:700;color:var(--ok);">—</span>
+        </div>
+        <div class="score-label-area">
+          <span>QUALITY SCORE</span>
+          <span>/ 100 pts</span>
+        </div>
+        <a href="tank_detail.html?tank_id=${id}" class="btn-detail ml-auto">⬡ DETAIL →</a>
+      </div>
+      <div class="card-footer">
+        <span class="footer-ts" id="footer-ts-${id}">—</span>
+        <span class="footer-device">ESP32-SA${String(id).padStart(2,'0')}</span>
+      </div>
+    `;
+    grid.appendChild(card);
+    STATE.sparklines=STATE.sparklines||{};
+    if(!STATE.sparklines[id]) STATE.sparklines[id]={temp:[]};
+
+    // Init CCTV with species-specific rendering
+    const cvEl=document.getElementById(`cctv-${id}`);
+    if(cvEl){
+      if(STATE.cctvRAF[id]) cancelAnimationFrame(STATE.cctvRAF[id]);
+      CCTV.init(id, cvEl, sp);
+    }
+  });
+}
+
+/* ── RENDER TANKS ── */
+function renderTanks(tanks) {
+  STATE.tanks=tanks;
+  let onlineCount=0, alertCount=0;
+  const grid=document.getElementById('tank-grid');
+  const existing=grid.querySelectorAll('.tank-card').length;
+  if(existing!==tanks.length) buildGrid(tanks);
+
+  tanks.forEach(tank=>{
+    const id=tank.tank_id;
+    const sensor=tank.latest_sensor;
+    const sets=tank.settings;
+    const sensorCfg=tank.sensor_configs||{};
+    const devices=tank.devices||{};
+    const isOffline=!sensor||tank.status==='offline'||tank.data_offline;
+
+    // Helper: ถ้า sensor พัง → คืน null (แสดง "—")
+    function getSensorVal(key,rawVal){
+      if(sensorCfg[key]&&sensorCfg[key].status==='error') return null;
+      return rawVal;
+    }
+    if(!isOffline) onlineCount++;
+
+    let level='normal';
+    let messages=[];
+    const d=CFG.DEFAULTS;
+    if(isOffline){level='offline';}
+    else{
+      const mn=sets?.min_temp??d.min_temp, mx=sets?.max_temp??d.max_temp;
+      const tph=sets?.trigger_ph??d.trigger_ph, tturb=sets?.trigger_turbidity??d.trigger_turbidity;
+      if(sensor.temperature>mx) { messages.push(`⚠ TEMP HIGH: ${sensor.temperature}°C > ${mx}°C`); level='alert'; }
+      else if(sensor.temperature<mn) { messages.push(`⚠ TEMP LOW: ${sensor.temperature}°C < ${mn}°C`); level='alert'; }
+      else if(sensor.temperature>mx-2) { messages.push(`△ TEMP WARN: ${sensor.temperature}°C`); if(level!=='alert') level='warning'; }
+      if(sensor.ph_level>tph) { messages.push(`⚠ pH HIGH: ${sensor.ph_level}`); level='alert'; }
+      else if(sensor.ph_level<6) { messages.push(`⚠ pH LOW: ${sensor.ph_level}`); if(level!=='alert') level='warning'; }
+      if(sensor.turbidity>tturb) { messages.push(`⚠ TURBIDITY: ${sensor.turbidity} NTU`); level='alert'; }
+      if(sensor.water_level<d.water_low) { messages.push(`⚠ WATER LOW: ${sensor.water_level}%`); level='alert'; }
+      else if(sensor.water_level<d.water_warn) { messages.push(`△ WATER WARN: ${sensor.water_level}%`); if(level!=='alert') level='warning'; }
+    }
+    if(level==='alert') alertCount++;
+
+    const card=document.getElementById(`card-${id}`);
+    if(card) setClass(card,`tank-card status-${level}`);
+    // CCTV overlay: ปิดหน้าจอปลาตอน offline, เปิดตอน online
+    const ovl=document.getElementById(`offline-ovl-${id}`);
+    if(ovl){
+      if(isOffline){ovl.textContent='NODE OFFLINE';ovl.style.display='flex';}
+      else{ovl.style.display='none';}
+    }
+    if(STATE.cctv[id]) STATE.cctv[id].status=level;
+    updateEl(`tname-${id}`,tank.tank_name||`Tank ${id}`);
+
+    const badge=document.getElementById(`badge-${id}`);
+    if(badge){
+      setClass(badge,`badge badge-${level}`);
+      updateEl(`badge-${id}`,{normal:'NORMAL',warning:'WARNING',alert:'ALERT',offline:'OFFLINE'}[level]||'—');
+    }
+
+    if(sensor){
+      const ts=new Date(sensor.recorded_at).toLocaleTimeString('th-TH',{hour12:false});
+      updateEl(`cctv-ts-${id}`,ts);
+      updateEl(`chip-temp-${id}`,`${sensor.temperature}°C`);
+      updateEl(`chip-ph-${id}`,sensor.ph_level);
+      updateEl(`chip-turb-${id}`,`${sensor.turbidity}`);
+      const chipTemp=document.getElementById(`chip-temp-${id}`);
+      const chipPh=document.getElementById(`chip-ph-${id}`);
+      if(chipTemp){
+        const mn=sets?.min_temp??24, mx=sets?.max_temp??32;
+        chipTemp.className='cctv-chip-val'+(sensor.temperature>mx||sensor.temperature<mn?' alert':sensor.temperature>mx-2?' warn':'');
+      }
+      if(chipPh){
+        const tph=sets?.trigger_ph??8.5;
+        chipPh.className='cctv-chip-val'+(sensor.ph_level>tph?' alert':sensor.ph_level<6?' warn':'');
+      }
+    }
+
+    if(!sensor) return;
+
+    const metricDefs=[
+      {key:'temp',  sKey:'temperature', val:getSensorVal('temperature', sensor.temperature), id:`temp-${id}`},
+      {key:'ph',    sKey:'ph',          val:getSensorVal('ph',          sensor.ph_level),    id:`ph-${id}`},
+      {key:'turb',  sKey:'turbidity',   val:getSensorVal('turbidity',   sensor.turbidity),   id:`turb-${id}`},
+      {key:'water', sKey:'water_level', val:getSensorVal('water_level', sensor.water_level), id:`water-${id}`},
+    ];
+    metricDefs.forEach(({key,sKey,val,id:mid})=>{
+      const dv=val!==null&&val!==undefined?parseFloat(Number(val).toFixed(2)):'—';
+      updateEl(`mval-${mid}`,dv);
+      const cell=document.getElementById(`mcell-${mid}`);
+      if(!cell) return;
+      // ถ้า sensor พัง → แสดง error style แทน
+      if(sensorCfg[sKey]&&sensorCfg[sKey].status==='error'){
+        setClass(cell,'metric-cell sensor-error'); return;
+      }
+      if(val===null||val===undefined){ setClass(cell,'metric-cell'); return; }
+      let mstate='ok';
+      const s2=sets||{}, dd=CFG.DEFAULTS;
+      if(key==='temp'){
+        const mn=s2.min_temp??dd.min_temp,mx=s2.max_temp??dd.max_temp;
+        if(val>mx||val<mn) mstate='alert'; else if(val>mx-2) mstate='warn';
+      } else if(key==='ph'){
+        const trg=s2.trigger_ph??dd.trigger_ph;
+        if(val>trg) mstate='alert'; else if(val<6) mstate='warn';
+      } else if(key==='turb'){
+        const trg=s2.trigger_turbidity??dd.trigger_turbidity;
+        if(val>trg) mstate='alert'; else if(val>trg*0.8) mstate='warn';
+      } else if(key==='water'){
+        if(val<dd.water_low) mstate='alert'; else if(val<dd.water_warn) mstate='warn';
+      }
+      setClass(cell,`metric-cell metric-${mstate}`);
+    });
+
+    const wFill=document.getElementById(`wbar-fill-${id}`);
+    const wl=sensor.water_level;
+    if(wFill){
+      const wc=wl<30?'water-bar-fill low':wl<50?'water-bar-fill mid':'water-bar-fill';
+      if(wFill.style.width!==`${wl}%`) wFill.style.width=`${wl}%`;
+      setClass(wFill,wc);
+    }
+    updateEl(`wbar-val-${id}`,`${wl}%`);
+
+    const sp=STATE.sparklines?.[id];
+    if(sp){
+      sp.temp.push(sensor.temperature);
+      if(sp.temp.length>CFG.SPARK_PTS) sp.temp.shift();
+      requestAnimationFrame(()=>{
+        const sc=document.getElementById(`spark-${id}`);
+        if(sc&&sp.temp.length>1){
+          const col=level==='alert'?'rgb(255,80,80)':level==='warning'?'rgb(255,167,38)':'rgb(0,200,255)';
+          drawSparkline(sc,sp.temp,col);
+        }
+      });
+    }
+
+    const score=calcScore(sensor,sets);
+    drawScoreArc(`score-arc-${id}`,score);
+    const sv=document.getElementById(`score-val-${id}`);
+    if(sv){
+      sv.textContent=score;
+      sv.style.color=score>=80?'var(--ok)':score>=60?'var(--warn)':'var(--alert)';
+    }
+
+    const strip=document.getElementById(`alert-strip-${id}`);
+    if(strip){
+      if(messages.length>0){ strip.textContent=messages.join('\n'); strip.style.display='block'; }
+      else strip.style.display='none';
+    }
+
+    const fts=new Date(sensor.recorded_at).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    updateEl(`footer-ts-${id}`,`UPDATED: ${fts}`);
+
+    // ── Device badges update ──
+    ['pump','feeder','cctv'].forEach(devType=>{
+      const el=document.getElementById(`devb-${devType}-${id}`);
+      if(!el) return;
+      const dev=devices[devType];
+      const devStatus=dev?.status||'normal';
+      el.className=`dev-badge${devStatus!=='normal'?' '+devStatus:''}`;
+      const icons={pump:'⚙',feeder:'🐟',cctv:'📹'};
+      el.textContent=`${icons[devType]} ${devType.toUpperCase()}: ${devStatus.toUpperCase()}`;
+    });
+    // CCTV overlay — ตอน tank online: ตรวจ CCTV device (API + localStorage)
+    if(!isOffline){
+      const cctvStatus=devices['cctv']?.status;
+      let cctvLocalFail=false;
+      try{const lf=JSON.parse(localStorage.getItem('aquaos_device_failures_v2')||'{}');cctvLocalFail=!!lf[`${id}_cctv`];}catch{}
+      const cctvDown=cctvStatus==='error'||cctvStatus==='offline'||cctvLocalFail;
+      const ovlC=document.getElementById(`offline-ovl-${id}`);
+      if(ovlC){
+        if(cctvDown){ovlC.textContent='📹 NO SIGNAL';ovlC.style.display='flex';}
+        else{ovlC.style.display='none';}
+      }
+    }
+
+    // ── Alert toast + cooldown (ป้องกัน spam ทุก 60 วิ) ──
+    const prev=STATE.lastRender[id];
+    const now=Date.now();
+    const COOLDOWN=60000;
+    if(!STATE.alertCooldown) STATE.alertCooldown={};
+    if(prev&&level==='alert'&&prev.level!=='alert'){
+      const last=STATE.alertCooldown[`alert-${id}`]||0;
+      if(now-last>COOLDOWN){
+        STATE.alertCooldown[`alert-${id}`]=now;
+        showToast(`🚨 TANK ${id}: ${tank.tank_name} — CRITICAL`,'alert');
+      }
+    }
+    if(prev&&level==='warning'&&prev.level==='normal'){
+      const last=STATE.alertCooldown[`warn-${id}`]||0;
+      if(now-last>COOLDOWN){
+        STATE.alertCooldown[`warn-${id}`]=now;
+        showToast(`⚠ TANK ${id}: ${tank.tank_name} — WARNING`,'warn');
+      }
+    }
+    STATE.lastRender[id]={level};
+  });
+
+  updateEl('hdr-online',`${onlineCount}/${tanks.length}`);
+  const ae=document.getElementById('hdr-alerts');
+  if(ae){ae.textContent=String(alertCount);ae.style.color=alertCount>0?'var(--alert)':'var(--ok)';}
+  updateEl('tank-count-label',`${tanks.length} NODES`);
+}
+
+/* ── SYNC INDICATOR ── */
+function setSync(state,label) {
+  const dot=document.getElementById('sync-dot');
+  const lbl=document.getElementById('sync-label');
+  const tm=document.getElementById('sync-time');
+  if(!dot) return;
+  dot.className=`sync-dot${state==='error'?' error':state==='syncing'?' syncing':''}`;
+  if(state==='ok'){
+    if(lbl) lbl.textContent='LIVE';
+    if(tm&&label) tm.textContent=label;
+    updateEl('sb-conn','SYSTEM ONLINE');
+    const d=document.getElementById('sb-dot'); if(d) d.style.background='var(--ok)';
+  } else if(state==='syncing'){
+    if(lbl) lbl.textContent='SYNCING…';
+  } else {
+    if(lbl) lbl.textContent='API ERROR';
+    if(tm&&label) tm.textContent=label;
+    updateEl('sb-conn','API ไม่ตอบสนอง');
+    const d=document.getElementById('sb-dot'); if(d) d.style.background='var(--warn)';
+  }
+}
+
+/* ── TOAST + ALERT SOUND ── */
+const SOUND = {
+  enabled: localStorage.getItem('aquaos_sound') !== 'off',
+  ctx: null,
+  // beep frequencies per type (Hz)
+  freq: { alert: 880, warn: 660, info: 440, ok: 520 },
+};
+
+function getAudioCtx() {
+  if (!SOUND.ctx) {
+    try { SOUND.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e) { return null; }
+  }
+  return SOUND.ctx;
+}
+
+function playBeep(type='info') {
+  if (!SOUND.enabled) return;
+  const ctx = getAudioCtx(); if (!ctx) return;
+  const f = SOUND.freq[type] || 440;
+  // เสียง alert = beep 2 ครั้ง, warn = 1 ครั้งยาว, อื่นๆ = ติ๊กเบาๆ
+  const pattern = type === 'alert' ? [[f,0.12],[0,0.06],[f*1.2,0.12]]
+                : type === 'warn'  ? [[f,0.18]]
+                :                    [[f,0.06]];
+  let t = ctx.currentTime;
+  pattern.forEach(([freq,dur]) => {
+    if (freq === 0) { t += dur; return; }
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.18, t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t); osc.stop(t + dur + 0.02);
+    t += dur;
+  });
+}
+
+function toggleSound() {
+  SOUND.enabled = document.getElementById('toggle-sound').checked;
+  localStorage.setItem('aquaos_sound', SOUND.enabled ? 'on' : 'off');
+  if (SOUND.enabled) playBeep('ok'); // confirm sound
+}
+
+function showToast(msg,type='info') {
+  const c=document.getElementById('toast-container');
+  if(!c) return;
+  const t=document.createElement('div');
+  t.className=`toast toast-${type}`;
+  t.textContent=msg;
+  c.appendChild(t);
+  setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t);},4500);
+  // เล่นเสียงเฉพาะตอน alert/warn (ไม่รบกวนกับ info ปกติ)
+  if (type === 'alert' || type === 'warn') playBeep(type);
+}
+
+/* ═══════════════════════════════════════════════════
+   AUTO-FEED SCHEDULER — ยิง feed_now.php ตาม feeding_time
+═══════════════════════════════════════════════════ */
+const AUTOFEED = {
+  enabled: localStorage.getItem('aquaos_autofeed') !== 'off',
+  // ใช้ Set กันยิงซ้ำในนาทีเดียวกัน — key = `${tank_id}-HH:MM-YYYYMMDD`
+  firedToday: new Set(),
+  timer: null,
+};
+
+function toggleAutoFeed() {
+  AUTOFEED.enabled = document.getElementById('toggle-autofeed').checked;
+  localStorage.setItem('aquaos_autofeed', AUTOFEED.enabled ? 'on' : 'off');
+  showToast(AUTOFEED.enabled ? '🤖 AUTO-FEED เปิดทำงาน' : '⏸ AUTO-FEED ปิดแล้ว', 'info');
+}
+
+async function checkAutoFeed() {
+  if (!AUTOFEED.enabled) return;
+  if (!STATE.tanks || !STATE.tanks.length) return;
+
+  const now = new Date();
+  const hh  = String(now.getHours()).padStart(2,'0');
+  const mm  = String(now.getMinutes()).padStart(2,'0');
+  const cur = `${hh}:${mm}`;
+  const dateKey = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+
+  for (const tank of STATE.tanks) {
+    const sets = tank.settings;
+    if (!sets || sets.auto_feed_status !== 'on') continue;
+    if (!sets.feeding_time || !sets.feeding_amount) continue;
+
+    // feeding_time มาเป็น "HH:MM:SS" — เปรียบเทียบแค่ HH:MM
+    const ft = String(sets.feeding_time).slice(0,5);
+    if (ft !== cur) continue;
+
+    const fireKey = `${tank.tank_id}-${cur}-${dateKey}`;
+    if (AUTOFEED.firedToday.has(fireKey)) continue;
+    AUTOFEED.firedToday.add(fireKey);
+
+    // ยิง feed_now.php
+    try {
+      const apiBase = (localStorage.getItem('aquaos_api_base') || '../api');
+      const res = await fetch(apiBase + '/feed_now.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tank_id: tank.tank_id,
+          amount:  sets.feeding_amount,
+          mode:    'auto',
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`🤖 AUTO-FEED: ${tank.tank_name} — ${sets.feeding_amount}g`, 'info');
+        playBeep('ok');
+        // refresh activity feed ทันที
+        loadActivityFeed();
+      } else {
+        showToast(`✗ AUTO-FEED ผิดพลาด: ${json.message || 'unknown'}`, 'warn');
+      }
+    } catch (err) {
+      console.warn('Auto-feed failed:', err);
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   ACTIVITY FEED TIMELINE — แสดง events ล่าสุด
+═══════════════════════════════════════════════════ */
+const ACTIVITY = {
+  url: '../api/get_events.php?limit=20&hours=24',
+  refreshMs: 15000,
+  timer: null,
+};
+
+function eventSeverityClass(ev) {
+  const sev = String(ev.severity || '').toLowerCase();
+  if (sev === 'critical') return 'critical';
+  if (sev === 'warning')  return 'warning';
+  if (sev === 'info')     return 'info';
+  // fallback ดูจาก event_type
+  const t = String(ev.event_type || '').toLowerCase();
+  if (t.includes('alert')) return 'critical';
+  if (t.includes('warn'))  return 'warning';
+  if (t.includes('feed'))  return 'ok';
+  return 'info';
+}
+
+function fmtRelTimeShort(str) {
+  if (!str) return '—';
+  const d = new Date(String(str).replace(' ','T'));
+  if (isNaN(d)) return str;
+  const sec = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (sec < 60)    return `${sec}s ago`;
+  if (sec < 3600)  return `${Math.floor(sec/60)}m ago`;
+  if (sec < 86400) return `${Math.floor(sec/3600)}h ago`;
+  return `${Math.floor(sec/86400)}d ago`;
+}
+
+function fmtAbsTime(str) {
+  if (!str) return '';
+  try {
+    return new Date(String(str).replace(' ','T'))
+      .toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
+  } catch { return str; }
+}
+
+async function loadActivityFeed() {
+  const container = document.getElementById('activity-timeline');
+  const countLbl  = document.getElementById('activity-count-label');
+  if (!container) return;
+
+  const apiBase = (localStorage.getItem('aquaos_api_base') || '../api');
+  const url = apiBase + '/get_events.php?limit=20&hours=24';
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    const json = await res.json();
+    if (!json.success || !Array.isArray(json.events)) throw new Error('bad response');
+    renderActivityFeed(json.events);
+    if (countLbl) countLbl.textContent = `${json.total || json.events.length} EVENTS · 24h`;
+  } catch (err) {
+    container.innerHTML = `<div class="text-muted text-sm" style="text-align:center;padding:40px 20px;font-family:var(--f-mono);">
+      ⚠ ไม่สามารถโหลด activity feed (${String(err.message||'error').slice(0,40)})
+    </div>`;
+  }
+}
+
+function renderActivityFeed(events) {
+  const container = document.getElementById('activity-timeline');
+  if (!container) return;
+  if (!events.length) {
+    container.innerHTML = `<div class="text-muted text-sm" style="text-align:center;padding:40px 20px;font-family:var(--f-mono);">ไม่มี event ใน 24 ชั่วโมงล่าสุด</div>`;
+    return;
+  }
+  container.innerHTML = events.map(ev => {
+    const sevCls = eventSeverityClass(ev);
+    const sevLbl = (ev.severity || sevCls).toUpperCase();
+    const rel    = fmtRelTimeShort(ev.created_at);
+    const abs    = fmtAbsTime(ev.created_at);
+    const tank   = ev.tank_name || (ev.tank_id ? `Tank ${ev.tank_id}` : 'SYSTEM');
+    const detail = ev.detail || (ev.event_type || '').replace(/_/g, ' ');
+    const safe   = (s) => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `
+      <div class="timeline-item">
+        <div class="timeline-dot ${sevCls}"></div>
+        <div class="timeline-content">
+          <div class="timeline-meta">
+            <span class="timeline-time">${rel}</span>
+            <span style="color:var(--tx-lo);">${abs}</span>
+            <span class="timeline-tank">${safe(tank)}</span>
+            <span class="timeline-sev-badge ${sevCls}">${safe(sevLbl)}</span>
+          </div>
+          <div class="timeline-detail">${safe(detail)}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/* ── CLOCK ── */
+function startClock() {
+  const tick=()=>{
+    const now=new Date().toLocaleString('th-TH',{weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    updateEl('sb-time',now);
+  };
+  tick(); setInterval(tick,1000);
+}
+
+async function poll() {
+  const data = await fetchData();
+  renderTanks(data);
+  // ทุกครั้งที่ refresh — เช็คว่าถึงเวลาให้อาหารหรือยัง
+  checkAutoFeed();
+}
+async function init() {
+  // ── Restore toggle states จาก localStorage ──
+  const sndCb = document.getElementById('toggle-sound');
+  if (sndCb) sndCb.checked = SOUND.enabled;
+  const afCb = document.getElementById('toggle-autofeed');
+  if (afCb) afCb.checked = AUTOFEED.enabled;
+
+  startClock();
+  await poll();
+  STATE.pollTimer = setInterval(poll, CFG.POLL_MS);
+
+  // ── Activity Feed: load ครั้งแรก + refresh ทุก 15 วิ ──
+  loadActivityFeed();
+  ACTIVITY.timer = setInterval(loadActivityFeed, ACTIVITY.refreshMs);
+
+  // ── AUTO-FEED: เช็คทุก 30 วิ (เผื่อ poll หลัก 5 วิไม่ครอบคลุมนาทีพอดี) ──
+  AUTOFEED.timer = setInterval(checkAutoFeed, 30000);
+
+  // ── BACKGROUND DEMO SENDER: ส่งข้อมูล sensor ปกติทุก 60 วิ ──
+  // ให้ทุกตู้ stay ONLINE ตลอดขณะที่ dashboard เปิดอยู่
+  // จะหยุดทำงานอัตโนมัติถ้า Simulator กำลัง inject failure อยู่
+  (function startBgSender() {
+    const DEMO_TANKS = [
+      {id:1, target:28, ph:7.2, min:24, max:32},
+      {id:2, target:27, ph:7.1, min:23, max:30},
+      {id:3, target:29, ph:7.3, min:24, max:34},
+      {id:4, target:26, ph:7.0, min:22, max:30},
+      {id:5, target:27.5, ph:7.2, min:23, max:31},
+    ];
+    async function sendBgData() {
+      // ถ้า Simulator กำลัง inject failure → ไม่ override
+      try {
+        const fails = JSON.parse(localStorage.getItem('aquaos_device_failures_v2') || '{}');
+        if (Object.keys(fails).length > 0) return;
+      } catch {}
+      // Reset DB errors + send fresh sensor data ในครั้งเดียว
+      try { await fetch(getApiBase() + '/seed_demo_data.php', { method: 'POST' }); } catch {}
+    }
+    sendBgData(); // ส่งทันทีรอบแรก
+    setInterval(sendBgData, 60000); // ทุก 60 วิ
+  })();
+
+  // ── Unlock AudioContext หลัง user click ครั้งแรก (เบราว์เซอร์ policy) ──
+  const unlockAudio = () => {
+    const ctx = getAudioCtx();
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+    document.removeEventListener('click', unlockAudio);
+  };
+  document.addEventListener('click', unlockAudio);
+}
+
+function onApiBaseChange() {
+  const input = document.getElementById('api-base-input');
+  const result = document.getElementById('api-test-result');
+  if (!input) return;
+
+  const normalized = normalizeApiBase(input.value);
+
+  if (input.value.trim()) {
+    localStorage.setItem('aquaos_api_base', normalized);
+  } else {
+    localStorage.removeItem('aquaos_api_base');
+  }
+
+  CFG.API_URL = normalized + '/get_latest.php';
+
+  if (result) {
+    result.textContent = `→ ${normalized}`;
+    result.style.color = 'var(--tx-mid)';
+  }
+}
+async function testAndReload() {
+  const r = document.getElementById('api-test-result');
+  const input = document.getElementById('api-base-input');
+
+  r.textContent = '⏳ กำลังทดสอบ…';
+  r.style.color = 'var(--cyan)';
+
+  const base = normalizeApiBase(input.value);
+
+  if (input.value.trim()) {
+    localStorage.setItem('aquaos_api_base', base);
+  } else {
+    localStorage.removeItem('aquaos_api_base');
+  }
+
+  try {
+    const j = await safeFetchJson(base + '/get_latest.php');
+
+    if (!j.success) throw new Error(j.message || 'invalid');
+
+    r.textContent = `✓ เชื่อมต่อสำเร็จ — พบ ${j.count} ตู้`;
+    r.style.color = 'var(--ok)';
+
+    CFG.API_URL = base + '/get_latest.php';
+
+    if (STATE.pollTimer) clearInterval(STATE.pollTimer);
+    await poll();
+    STATE.pollTimer = setInterval(poll, CFG.POLL_MS);
+
+    showToast('✓ API เชื่อมต่อแล้ว', 'ok');
+  } catch (e) {
+    r.textContent = `✕ ${e.message || 'failed'}`;
+    r.style.color = 'var(--alert)';
+    showToast(`✕ เชื่อม API ไม่ได้: ${e.message}`, 'alert');
+  }
+}
+
+/* ── CCTV FULLSCREEN MODAL ── */
+const MODAL_STATE = { tankId: null, raf: null };
+
+function openCCTVModal(tankId) {
+  const modal = document.getElementById('cctv-modal');
+  const canvas = document.getElementById('cctv-modal-canvas');
+  if (!modal || !canvas) return;
+
+  MODAL_STATE.tankId = tankId;
+
+  // ใช้ species จริงจาก STATE.tanks ถ้ามี
+  const tankRec = (STATE.tanks || []).find(t => t.tank_id === tankId);
+  // รวม tank_name + species เพื่อให้ 'Red Tilapia' ใน tank_name match ก่อน 'Tilapia' ใน species
+  const rawSp = ((tankRec?.tank_name || '') + ' ' + (tankRec?.species || '')).trim();
+  const sp = rawSp ? speciesToProfile(rawSp) : (CFG.TANK_SPECIES[(tankId-1) % CFG.TANK_SPECIES.length] || 'NILE TILAPIA');
+
+  // Header
+  document.getElementById('cctv-modal-ch').textContent = `CH-${String(tankId).padStart(2,'0')} / HD`;
+  document.getElementById('cctv-modal-species').textContent = sp;
+
+  // Tank name
+  const nameEl = document.getElementById(`tname-${tankId}`);
+  const modalName = document.getElementById('cctv-modal-name');
+  if (nameEl && modalName) modalName.textContent = nameEl.textContent;
+
+  // Chip helper — copy value + class
+  const copyChip = (srcId, dstId) => {
+    const src = document.getElementById(srcId);
+    const dst = document.getElementById(dstId);
+    if (!src || !dst) return;
+    dst.textContent = src.textContent;
+    dst.className = 'chip-val' + (src.className.includes('alert') ? ' alert' : src.className.includes('warn') ? ' warn' : '');
+  };
+  copyChip(`chip-temp-${tankId}`, 'cctv-modal-temp');
+  copyChip(`chip-ph-${tankId}`,   'cctv-modal-ph');
+  copyChip(`chip-turb-${tankId}`, 'cctv-modal-turb');
+
+  // Water — from metric value
+  const waterEl = document.getElementById(`mval-water-${tankId}`);
+  if (waterEl) {
+    const dst = document.getElementById('cctv-modal-water');
+    if (dst) dst.textContent = waterEl.textContent;
+  }
+
+  // Score
+  const scoreEl = document.getElementById(`score-val-${tankId}`);
+  const modalScore = document.getElementById('cctv-modal-score');
+  const qbar = document.getElementById('cctv-modal-qbar');
+  if (scoreEl && modalScore) {
+    const s = parseInt(scoreEl.textContent) || 0;
+    modalScore.textContent = s;
+    modalScore.style.color = s >= 80 ? 'var(--ok)' : s >= 60 ? 'var(--warn)' : 'var(--alert)';
+    modalScore.style.textShadow = s >= 80 ? '0 0 10px rgba(0,232,124,0.5)' : s >= 60 ? '0 0 10px rgba(255,167,38,0.5)' : '0 0 10px rgba(255,61,61,0.5)';
+    if (qbar) {
+      qbar.style.width = '0%';
+      qbar.style.background = s >= 80 ? 'linear-gradient(90deg,var(--ok),rgba(0,200,255,0.5))' : s >= 60 ? 'linear-gradient(90deg,var(--warn),rgba(255,200,50,0.4))' : 'linear-gradient(90deg,var(--alert),rgba(255,100,50,0.4))';
+      setTimeout(() => { if(qbar) qbar.style.width = s + '%'; }, 100);
+    }
+  }
+
+  // Timestamp
+  const tsEl = document.getElementById(`footer-ts-${tankId}`);
+  if (tsEl) document.getElementById('cctv-modal-info').textContent = tsEl.textContent;
+
+  // Show
+  modal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+
+  // Start CCTV render in modal — ใหญ่กว่าเดิม 1.8x + hi-DPI
+  if (STATE.cctvRAF['modal']) cancelAnimationFrame(STATE.cctvRAF['modal']);
+  if (STATE.cctv['modal']) delete STATE.cctv['modal'];
+  // รอ layout settle ก่อนจึง init (offsetWidth/Height พร้อม)
+  requestAnimationFrame(() => CCTV.init('modal', canvas, sp, {scale: 1.8, dpr: window.devicePixelRatio || 1}));
+
+  // Live sync loop
+  if (MODAL_STATE.syncInterval) clearInterval(MODAL_STATE.syncInterval);
+  MODAL_STATE.syncInterval = setInterval(() => {
+    if (!document.getElementById('cctv-modal').classList.contains('active')) return;
+    copyChip(`chip-temp-${tankId}`, 'cctv-modal-temp');
+    copyChip(`chip-ph-${tankId}`,   'cctv-modal-ph');
+    copyChip(`chip-turb-${tankId}`, 'cctv-modal-turb');
+
+    const w = document.getElementById(`mval-water-${tankId}`);
+    const wd = document.getElementById('cctv-modal-water');
+    if (w && wd) wd.textContent = w.textContent;
+
+    const sv = document.getElementById(`score-val-${tankId}`);
+    const ms = document.getElementById('cctv-modal-score');
+    if (sv && ms) {
+      const sc = parseInt(sv.textContent) || 0;
+      ms.textContent = sc;
+      ms.style.color = sc >= 80 ? 'var(--ok)' : sc >= 60 ? 'var(--warn)' : 'var(--alert)';
+      if (qbar) qbar.style.width = sc + '%';
+    }
+
+    const ts = document.getElementById(`footer-ts-${tankId}`);
+    const ti = document.getElementById('cctv-modal-info');
+    if (ts && ti) ti.textContent = ts.textContent;
+
+    // Timestamp top-right
+    const topTs = document.getElementById('cctv-modal-top-ts');
+    if (topTs) topTs.textContent = new Date().toLocaleTimeString('th-TH', {hour12:false});
+
+    // Mirror alert status to modal rendering
+    if (STATE.cctv['modal'] && STATE.cctv[tankId]) {
+      STATE.cctv['modal'].status = STATE.cctv[tankId].status;
+    }
+  }, 1000);
+}
+
+function closeCCTVModal(e) {
+  // If called from overlay click, only close if clicking the backdrop itself
+  if (e && e.currentTarget && e.target !== e.currentTarget) return;
+  _doCloseCCTVModal();
+}
+
+function _doCloseCCTVModal() {
+  const modal = document.getElementById('cctv-modal');
+  if (modal) modal.classList.remove('active');
+  document.body.style.overflow = '';
+  if (STATE.cctvRAF['modal']) { cancelAnimationFrame(STATE.cctvRAF['modal']); delete STATE.cctvRAF['modal']; }
+  if (STATE.cctv['modal']) delete STATE.cctv['modal'];
+  if (MODAL_STATE.syncInterval) clearInterval(MODAL_STATE.syncInterval);
+  MODAL_STATE.tankId = null;
+}
+
+// Close on Escape key
+document.addEventListener('keydown', e => { if (e.key === 'Escape') _doCloseCCTVModal(); });
+
+init();
+window.addEventListener('load',()=>{
+  const saved=localStorage.getItem('aquaos_api_base')||'';
+  const inp=document.getElementById('api-base-input');
+  if(inp) inp.value=saved;
+});
+</script>
+</body>
+</html>

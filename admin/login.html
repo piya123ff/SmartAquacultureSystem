@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AQUAOS — เข้าสู่ระบบ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #04080f;
+      --bg-card: #0b1526;
+      --bg-in:   #060c18;
+      --bdr:     #112238;
+      --bdr-hi:  #1a3a58;
+      --tx:      #e6f3ff;
+      --tx-mid:  #a3c8e6;
+      --tx-lo:   #7ea5c4;
+      --tx-hi:   #f4faff;
+      --ok:      #00e87c;
+      --err:     #ff3d3d;
+      --warn:    #ffa726;
+      --cyan:    #00c8ff;
+      --mono:    'Share Tech Mono', monospace;
+      --ui:      'Exo 2', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      font-family: var(--ui);
+      color: var(--tx);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* Animated grid background */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image: radial-gradient(rgba(0,200,255,0.07) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: radial-gradient(ellipse 70% 70% at 50% 50%, black 20%, transparent 100%);
+      animation: gridDrift 20s ease-in-out infinite alternate;
+    }
+    @keyframes gridDrift {
+      from { background-position: 0 0; }
+      to   { background-position: 18px 18px; }
+    }
+
+    /* Ambient glow */
+    body::after {
+      content: '';
+      position: fixed;
+      width: 700px; height: 700px;
+      top: -250px; left: -200px;
+      background: radial-gradient(circle, rgba(0,200,255,0.06) 0%, transparent 65%);
+      pointer-events: none;
+      z-index: 0;
+      animation: glowPulse 5s ease-in-out infinite;
+    }
+    @keyframes glowPulse {
+      0%,100% { opacity: 0.6; transform: scale(1); }
+      50%      { opacity: 1;   transform: scale(1.08); }
+    }
+
+    /* Scan line */
+    .scan-line {
+      position: fixed; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,200,255,0.15), transparent);
+      z-index: 0;
+      animation: scanMove 8s linear infinite;
+    }
+    @keyframes scanMove {
+      from { top: -2px; }
+      to   { top: 102vh; }
+    }
+
+    .wrap {
+      position: relative; z-index: 1;
+      width: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 28px;
+      animation: wrapIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes wrapIn {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Logo */
+    .logo {
+      display: flex; align-items: center; gap: 14px;
+      animation: logoIn 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.1s both;
+    }
+    @keyframes logoIn {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .logo svg { width: 44px; height: 44px; filter: drop-shadow(0 0 12px rgba(0,200,255,0.5)); }
+    .logo-text { line-height: 1; }
+    .logo-name { font-family: var(--mono); font-size: 1.9rem; letter-spacing: 0.25em; color: var(--cyan); text-shadow: 0 0 20px rgba(0,200,255,0.4); }
+    .logo-sub  { font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.18em; color: var(--tx-lo); margin-top: 4px; }
+
+    /* Card */
+    .card {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--bdr);
+      border-top-color: var(--bdr-hi);
+      padding: 32px 36px 28px;
+      position: relative;
+      animation: cardIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(20px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0)    scale(1); }
+    }
+    .card::before {
+      content: ''; position: absolute; top: -1px; left: -1px;
+      width: 16px; height: 16px;
+      border-top: 2px solid var(--cyan); border-left: 2px solid var(--cyan);
+      transition: width 0.3s, height 0.3s;
+    }
+    .card::after {
+      content: ''; position: absolute; bottom: -1px; right: -1px;
+      width: 16px; height: 16px;
+      border-bottom: 2px solid rgba(0,200,255,0.4); border-right: 2px solid rgba(0,200,255,0.4);
+      transition: width 0.3s, height 0.3s;
+    }
+    .card:hover::before { width: 28px; height: 28px; }
+    .card:hover::after  { width: 28px; height: 28px; }
+
+    .card-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 20px; margin-bottom: 24px;
+      border-bottom: 1px solid var(--bdr);
+    }
+    .card-title { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.2em; color: var(--tx-mid); }
+    .card-badge {
+      font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.1em;
+      color: var(--ok); border: 1px solid rgba(0,232,124,0.25); padding: 2px 8px;
+    }
+    .card-badge::before {
+      content: ''; display: inline-block; width: 5px; height: 5px;
+      border-radius: 50%; background: var(--ok); margin-right: 5px;
+      animation: dotPulse 2s ease-in-out infinite;
+    }
+    @keyframes dotPulse {
+      0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+    }
+
+    /* Fields */
+    .field { margin-bottom: 20px; }
+    .label {
+      font-family: var(--mono); font-size: 0.76rem; letter-spacing: 0.15em;
+      color: var(--tx-mid); margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .label::before {
+      content: ''; display: inline-block; width: 4px; height: 4px;
+      background: var(--cyan); clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    }
+    .input-wrap { position: relative; }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      background: var(--bg-in); border: 1px solid var(--bdr);
+      color: var(--tx-hi); font-family: var(--mono); font-size: 0.92rem;
+      padding: 13px 44px 13px 16px; outline: none;
+      letter-spacing: 0.04em;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    input::placeholder { color: var(--tx-lo); font-size: 0.78rem; }
+    input:focus {
+      border-color: var(--cyan);
+      box-shadow: 0 0 0 2px rgba(0,200,255,0.1), inset 0 0 20px rgba(0,200,255,0.03);
+      background: #070e1e;
+    }
+    input.shake {
+      animation: inputShake 0.4s ease;
+      border-color: var(--err) !important;
+      box-shadow: 0 0 0 2px rgba(255,61,61,0.1) !important;
+    }
+    @keyframes inputShake {
+      0%,100% { transform: translateX(0); }
+      20%      { transform: translateX(-6px); }
+      40%      { transform: translateX(6px); }
+      60%      { transform: translateX(-4px); }
+      80%      { transform: translateX(4px); }
+    }
+
+    .icon { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); color: var(--tx-lo); font-size: 1rem; pointer-events: none; transition: color 0.2s; }
+    input:focus ~ .icon { color: var(--cyan); }
+
+    .toggle-pw {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--tx-lo); cursor: pointer;
+      font-size: 1rem; padding: 4px; transition: color 0.2s, transform 0.2s;
+    }
+    .toggle-pw:hover { color: var(--cyan); transform: translateY(-50%) scale(1.15); }
+
+    /* Remember row */
+    .row-opt { display: flex; align-items: center; margin-bottom: 24px; }
+    .remember {
+      display: flex; align-items: center; gap: 8px; cursor: pointer;
+      font-family: var(--mono); font-size: 0.76rem; letter-spacing: 0.12em;
+      color: var(--tx-lo); user-select: none; transition: color 0.2s;
+    }
+    .remember:hover { color: var(--tx-mid); }
+    .remember input { display: none; }
+    .check-box {
+      width: 16px; height: 16px; border: 1px solid var(--bdr-hi);
+      background: var(--bg-in); display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: border-color 0.2s, background 0.2s;
+    }
+    .remember:hover .check-box { border-color: var(--cyan); }
+    .check-mark { display: none; color: var(--cyan); font-size: 0.75rem; }
+    .remember input:checked ~ .check-box .check-mark { display: block; }
+    .remember input:checked ~ .check-box { border-color: var(--cyan); background: rgba(0,200,255,0.08); }
+
+    /* Error */
+    .error {
+      display: none;
+      background: rgba(255,61,61,0.08); border: 1px solid rgba(255,61,61,0.25);
+      border-left: 3px solid var(--err);
+      padding: 10px 14px; margin-bottom: 18px;
+      font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.06em; color: var(--err);
+    }
+    .error.show { display: block; animation: errIn 0.35s ease; }
+    @keyframes errIn {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Submit */
+    .btn {
+      width: 100%;
+      background: rgba(0,200,255,0.07); border: 1px solid rgba(0,200,255,0.25);
+      color: var(--cyan); font-family: var(--mono); font-size: 0.78rem;
+      letter-spacing: 0.18em; padding: 15px;
+      cursor: pointer; transition: background 0.2s, border-color 0.2s, transform 0.1s;
+      position: relative; overflow: hidden;
+    }
+    .btn:hover:not(:disabled) { background: rgba(0,200,255,0.13); border-color: rgba(0,200,255,0.45); }
+    .btn:active:not(:disabled) { transform: scale(0.99); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn .ripple {
+      position: absolute; border-radius: 50%;
+      background: rgba(0,200,255,0.25); transform: scale(0);
+      animation: rippleAnim 0.5s linear; pointer-events: none;
+    }
+    @keyframes rippleAnim { to { transform: scale(4); opacity: 0; } }
+
+    .btn-spinner {
+      display: inline-block; width: 12px; height: 12px;
+      border: 1.5px solid rgba(0,200,255,0.3); border-top-color: var(--cyan);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      margin-right: 8px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Info box — default credentials */
+    .info-box {
+      background: rgba(0,200,255,0.05); border: 1px solid rgba(0,200,255,0.15);
+      border-left: 3px solid rgba(0,200,255,0.4);
+      padding: 10px 14px; margin-bottom: 20px;
+      font-family: var(--mono); font-size: 0.76rem; letter-spacing: 0.05em;
+      color: var(--tx-mid); line-height: 1.7;
+    }
+    .info-box strong { color: var(--cyan); }
+
+    /* Footer */
+    .footer {
+      font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.12em;
+      color: var(--tx-lo); display: flex; gap: 24px;
+      animation: footerIn 0.8s ease 0.5s both;
+    }
+    @keyframes footerIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .dot {
+      display: inline-block; width: 5px; height: 5px;
+      background: var(--ok); border-radius: 50%; box-shadow: 0 0 6px var(--ok);
+      margin-right: 5px; animation: dotPulse 2s ease-in-out infinite;
+    }
+
+    .version-badge {
+      position: fixed; bottom: 16px; right: 16px;
+      font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.12em;
+      color: var(--tx-lo); z-index: 10;
+    }
+  </style>
+</head>
+<body>
+
+<div class="scan-line"></div>
+
+<div class="wrap">
+
+  <!-- Logo -->
+  <div class="logo">
+    <svg viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1.5" y="1.5" width="35" height="35" rx="3" stroke="#00c8ff" stroke-width="1.2"/>
+      <path d="M6 26 Q11 18 16 22 Q21 26 26 18 Q31 11 34 15" stroke="#00c8ff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <circle cx="9"  cy="21" r="2" fill="#00e87c"/>
+      <circle cx="19" cy="24" r="2" fill="#00c8ff"/>
+      <circle cx="28" cy="16" r="2" fill="#ffa726"/>
+      <path d="M14 12 L14 7 L24 7 L24 12" stroke="#00c8ff" stroke-width="1.2" fill="none"/>
+      <path d="M19 7 L19 4" stroke="#00c8ff" stroke-width="1.2"/>
+    </svg>
+    <div class="logo-text">
+      <div class="logo-name">AQUAOS</div>
+      <div class="logo-sub">SMART AQUACULTURE CONTROL</div>
+    </div>
+  </div>
+
+  <!-- Card -->
+  <div class="card">
+    <div class="card-head">
+      <span class="card-title">ADMIN ACCESS</span>
+      <span class="card-badge">SECURE</span>
+    </div>
+
+    <!-- Default credentials hint -->
+    <div class="info-box">
+      ค่าเริ่มต้น: <strong>admin</strong> / <strong>admin123</strong>
+    </div>
+
+    <div class="error" id="err"></div>
+
+    <div class="field">
+      <div class="label">USERNAME</div>
+      <div class="input-wrap">
+        <input type="text" id="user" autocomplete="username" placeholder="กรอกชื่อผู้ใช้">
+        <span class="icon">◈</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="label">PASSWORD</div>
+      <div class="input-wrap">
+        <input type="password" id="pass" autocomplete="current-password" placeholder="กรอกรหัสผ่าน">
+        <button type="button" class="toggle-pw" id="eye" title="แสดง/ซ่อน">◉</button>
+      </div>
+    </div>
+
+    <div class="row-opt">
+      <label class="remember">
+        <input type="checkbox" id="remember">
+        <span class="check-box"><span class="check-mark">✓</span></span>
+        จดจำชื่อผู้ใช้
+      </label>
+    </div>
+
+    <button class="btn" id="btn" onclick="doLogin(event)">⬡ เข้าสู่ระบบ</button>
+  </div>
+
+  <div class="footer">
+    <span><span class="dot"></span>SYSTEM ONLINE</span>
+    <span id="clock"></span>
+  </div>
+
+</div>
+
+<div class="version-badge">VER 2.2.0 — AQUAOS PRO</div>
+
+<script>
+// Auto-redirect if already logged in
+if (sessionStorage.getItem("aquaos_token")) {
+  window.location.replace("index.html");
+}
+
+// Clock
+setInterval(() => {
+  const n = new Date(), p = v => String(v).padStart(2,'0');
+  document.getElementById('clock').textContent =
+    p(n.getHours())+':'+p(n.getMinutes())+':'+p(n.getSeconds());
+}, 1000);
+
+// Toggle password visibility
+document.getElementById('eye').onclick = function() {
+  const inp  = document.getElementById('pass');
+  const show = inp.type === 'password';
+  inp.type      = show ? 'text' : 'password';
+  this.textContent = show ? '◎' : '◉';
+  this.style.color = show ? 'var(--cyan)' : '';
+};
+
+// Remember me
+const saved = localStorage.getItem('aquaos_user');
+if (saved) {
+  document.getElementById('user').value    = saved;
+  document.getElementById('remember').checked = true;
+}
+
+// Enter key
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// Ripple effect
+function createRipple(btn, e) {
+  const rect = btn.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  const x = e.clientX - rect.left - size / 2;
+  const y = e.clientY - rect.top  - size / 2;
+  const ripple = document.createElement('span');
+  ripple.classList.add('ripple');
+  ripple.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px;`;
+  btn.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 500);
+}
+
+async function doLogin(ev) {
+  const username = document.getElementById('user').value.trim();
+  const password = document.getElementById('pass').value;
+  const remember = document.getElementById('remember').checked;
+  const btn      = document.getElementById('btn');
+  const err      = document.getElementById('err');
+
+  if (!username || !password) {
+    showErr('กรุณากรอกชื่อผู้ใช้และรหัสผ่าน');
+    if (!username) shakeInput('user');
+    if (!password) shakeInput('pass');
+    return;
+  }
+
+  if (ev) createRipple(btn, ev);
+
+  btn.disabled  = true;
+  btn.innerHTML = '<span class="btn-spinner"></span>กำลังตรวจสอบ...';
+  err.classList.remove('show');
+
+  try {
+    const res  = await fetch('../api/auth.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      // Store user info in sessionStorage
+      sessionStorage.setItem('aquaos_user', JSON.stringify(data.user));
+      sessionStorage.setItem('aquaos_token', data.token);
+
+      // Reset device failure state on every login — dashboard starts clean
+      localStorage.removeItem('aquaos_device_failures_v2');
+
+      if (remember) localStorage.setItem('aquaos_user', username);
+      else          localStorage.removeItem('aquaos_user');
+
+      btn.innerHTML    = '✓ เข้าสู่ระบบสำเร็จ';
+      btn.style.cssText += ';background:rgba(0,232,124,0.1);border-color:var(--ok);color:var(--ok);';
+
+      // Seed fresh normal sensor data so all tanks appear ONLINE immediately
+      try {
+        const apiBase = (localStorage.getItem('aquaos_api_base') || '../api').replace(/\/insert_sensor\.php$/, '');
+        await fetch(apiBase + '/seed_demo_data.php', { method: 'POST' });
+      } catch (_) { /* non-blocking — dashboard will still load */ }
+
+      // Redirect to admin panel (same folder level as login.php)
+      setTimeout(() => { window.location.href = 'index.html'; }, 700);
+
+    } else {
+      showErr(data.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      shakeInput('user');
+      shakeInput('pass');
+      btn.disabled  = false;
+      btn.innerHTML = '⬡ เข้าสู่ระบบ';
+    }
+
+  } catch (e) {
+    showErr('เชื่อมต่อ Server ไม่ได้ — ตรวจสอบว่า Docker รันอยู่');
+    btn.disabled  = false;
+    btn.innerHTML = '⬡ เข้าสู่ระบบ';
+  }
+}
+
+function shakeInput(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('shake');
+  void el.offsetWidth;
+  el.classList.add('shake');
+  setTimeout(() => el.classList.remove('shake'), 400);
+}
+
+function showErr(msg) {
+  const el = document.getElementById('err');
+  el.textContent = '⚠ ' + msg;
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+}
+</script>
+</body>
+</html>

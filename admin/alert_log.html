@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaOS Pro — Alert Center</title>
+<link rel="stylesheet" href="../static/style.css">
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <a href="index.html" class="tb-logo">
+    <svg class="logo-svg" viewBox="0 0 38 38" fill="none">
+      <rect x="1.5" y="1.5" width="35" height="35" rx="3" stroke="#00c8ff" stroke-width="1.2"/>
+      <path d="M6 26 Q11 18 16 22 Q21 26 26 18 Q31 11 34 15" stroke="#00c8ff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <circle cx="9"  cy="21" r="2" fill="#00e87c"/>
+      <circle cx="19" cy="24" r="2" fill="#00c8ff"/>
+      <circle cx="28" cy="16" r="2" fill="#ffa726"/>
+      <path d="M14 12 L14 7 L24 7 L24 12" stroke="#00c8ff" stroke-width="1.2" fill="none"/>
+      <path d="M19 7 L19 4" stroke="#00c8ff" stroke-width="1.2"/>
+    </svg>
+    <div class="tb-logo-text">
+      <div class="logo-name">AQUAOS</div>
+      <div class="logo-sub">SMART AQUACULTURE CONTROL</div>
+    </div>
+  </a>
+  <nav class="tb-nav">
+    <a href="index.html">DASHBOARD</a>
+    <a href="history.html">HISTORY</a>
+    <a href="alert_log.html" class="active">ALERTS</a>
+    <a href="report.html">REPORT</a>
+    <a href="settings.html">SETTINGS</a>
+    <a href="simulator.html">SIMULATOR</a>
+    <a href="device_health.html">DEVICE HEALTH</a>
+  </nav>
+  <div class="tb-stats">
+    <div class="tb-stat">
+      <span class="tb-stat-label">TOTAL EVENTS</span>
+      <span class="tb-stat-val" id="hdr-total">—</span>
+    </div>
+    <div class="tb-stat">
+      <span class="tb-stat-label">CRITICAL</span>
+      <span class="tb-stat-val text-alert" id="hdr-crit">—</span>
+    </div>
+    <div class="tb-stat">
+      <span class="tb-stat-label">LAST EVENT</span>
+      <span class="tb-stat-val text-sm" id="hdr-last">—</span>
+    </div>
+    <div class="tb-sync">
+      <div class="sync-dot" id="sync-dot"></div>
+      <div class="flex-col" style="align-items:flex-start;">
+        <span class="sync-label" id="sync-label">LIVE</span>
+        <span class="sync-time" id="sync-time">—</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+
+  <!-- FILTER BAR -->
+  <div class="filter-bar">
+    <span class="text-muted text-xs uppercase letter-wide">TANK</span>
+    <select class="form-select" id="f-tank">
+      <option value="">ALL TANKS</option>
+      <option value="1">Tank 1</option>
+      <option value="2">Tank 2</option>
+      <option value="3">Tank 3</option>
+      <option value="4">Tank 4</option>
+      <option value="5">Tank 5</option>
+    </select>
+
+    <div class="divider" style="width:1px;height:24px;margin:0 4px;"></div>
+    <span class="text-muted text-xs uppercase letter-wide">TYPE</span>
+    <select class="form-select" id="f-type">
+      <option value="">ALL TYPES</option>
+      <option value="alert_temp_high">TEMP HIGH</option>
+      <option value="alert_temp_low">TEMP LOW</option>
+      <option value="alert_ph">PH ALERT</option>
+      <option value="alert_turbidity">TURBIDITY</option>
+      <option value="normal">NORMAL</option>
+      <option value="settings_updated">SETTINGS</option>
+    </select>
+
+    <div class="divider" style="width:1px;height:24px;margin:0 4px;"></div>
+    <span class="text-muted text-xs uppercase letter-wide">SEVERITY</span>
+    <select class="form-select" id="f-severity">
+      <option value="">ALL SEVERITY</option>
+      <option value="critical">CRITICAL</option>
+      <option value="warning">WARNING</option>
+      <option value="info">INFO</option>
+      <option value="normal">NORMAL</option>
+    </select>
+
+    <div class="divider" style="width:1px;height:24px;margin:0 4px;"></div>
+    <span class="text-muted text-xs uppercase letter-wide">LIMIT</span>
+    <select class="form-select" id="f-limit">
+      <option value="50">50</option>
+      <option value="100" selected>100</option>
+      <option value="200">200</option>
+      <option value="500">500</option>
+    </select>
+
+    <button class="btn btn-cyan" onclick="applyFilter()">APPLY</button>
+    <button class="btn btn-ghost" onclick="clearFilter()">RESET</button>
+
+    <div class="divider" style="width:1px;height:24px;margin:0 4px;"></div>
+    <div class="flex flex-center gap-2 ml-auto">
+      <span class="text-mid text-xs">AUTO-REFRESH</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="auto-refresh-cb" checked onchange="toggleAutoRefresh()">
+        <span class="toggle-slider"></span>
+      </label>
+      <span class="badge badge-normal" id="live-badge" style="font-size:0.7rem;padding:3px 8px;">
+        <span style="width:5px;height:5px;border-radius:50%;background:var(--ok);display:inline-block;margin-right:4px;animation:syncPulse 1.5s ease-in-out infinite;"></span>LIVE
+      </span>
+    </div>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stat-chips">
+    <div class="stat-chip">
+      <span class="stat-chip-label">TOTAL EVENTS</span>
+      <span class="stat-chip-val" id="sc-total">—</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-chip-label">CRITICAL ALERTS</span>
+      <span class="stat-chip-val red" id="sc-crit">—</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-chip-label">WARNINGS</span>
+      <span class="stat-chip-val gold" id="sc-warn">—</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-chip-label">NORMAL / INFO</span>
+      <span class="stat-chip-val green" id="sc-norm">—</span>
+    </div>
+    <div class="stat-chip">
+      <span class="stat-chip-label">ALERT RATE</span>
+      <span class="stat-chip-val" id="sc-rate">—%</span>
+    </div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">EVENT LOG</div>
+        <div class="card-sub" id="table-count">— records</div>
+      </div>
+      <button class="btn btn-ghost text-xs" onclick="exportCSV()">⬇ EXPORT CSV</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="event-table" id="ev-table">
+        <thead>
+          <tr>
+            <th onclick="sortBy('event_id')" data-col="event_id" style="cursor:pointer;">ID <span class="sort-arrow">↕</span></th>
+            <th onclick="sortBy('created_at')" data-col="created_at" style="cursor:pointer;" class="sorted">TIME <span class="sort-arrow">↓</span></th>
+            <th>TANK</th>
+            <th onclick="sortBy('event_type')" data-col="event_type" style="cursor:pointer;">TYPE <span class="sort-arrow">↕</span></th>
+            <th>SEVERITY</th>
+            <th>DETAIL</th>
+          </tr>
+        </thead>
+        <tbody id="ev-tbody">
+          <!-- skeleton -->
+          <tr>
+            <td><div style="height:14px;border-radius:6px;background:var(--bg-inset);width:40px;"></div></td>
+            <td><div style="height:14px;border-radius:6px;background:var(--bg-inset);width:120px;"></div></td>
+            <td><div style="height:14px;border-radius:6px;background:var(--bg-inset);width:80px;"></div></td>
+            <td><div style="height:14px;border-radius:6px;background:var(--bg-inset);width:100px;"></div></td>
+            <td><div style="height:14px;border-radius:6px;background:var(--bg-inset);width:70px;"></div></td>
+            <td><div style="height:14px;border-radius:6px;background:var(--bg-inset);width:240px;"></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Pagination -->
+    <div class="flex flex-between" style="padding:10px 16px;border-top:1px solid var(--bdr);background:var(--bg-inset);">
+      <span class="text-muted text-xs" id="page-info">Showing — of — events</span>
+      <div class="flex gap-2" id="page-btns"></div>
+    </div>
+  </div>
+
+</main>
+
+<div class="toast-container" id="toast-container"></div>
+
+<footer class="statusbar">
+  <div class="sb-item"><div class="sb-dot" id="sb-dot"></div><span id="sb-conn">SYSTEM ONLINE</span></div>
+  <div class="sb-item" id="sb-page-info"></div>
+  <div class="sb-item">VER 2.2.0</div>
+  <div class="sb-right" id="sb-time">—</div>
+</footer>
+
+<script>
+const CFG = {
+  API_URL: '../api/get_events.php',
+  POLL_MS: 5000,
+  PAGE_SIZE: 25,
+};
+
+const STATE = {
+  events: [], filteredEvents: [], tankNames: {},
+  sortCol: 'created_at', sortDir: 'desc', page: 0,
+  pollTimer: null, autoRefresh: true,
+  filterTank: '', filterType: '', filterSeverity: '', filterLimit: 100,
+};
+
+function getSeverity(eventType) {
+  const t = (eventType || '').toLowerCase();
+  if (t.includes('alert_temp') || t.includes('alert_ph') || t.includes('alert_turb')) return 'critical';
+  if (t.includes('alert') || t.includes('high') || t.includes('low')) return 'warning';
+  if (t === 'normal') return 'normal';
+  return 'info';
+}
+function getSevClass(sev) {
+  return { critical:'alert', warning:'warn', normal:'ok', info:'info' }[sev] || 'info';
+}
+function getSevLabel(sev) {
+  return { critical:'CRITICAL', warning:'WARNING', normal:'NORMAL', info:'INFO' }[sev] || 'INFO';
+}
+
+function generateMockEvents(count = 50) {
+  const types = ['alert_temp_high','alert_temp_low','alert_ph','alert_turbidity','normal','settings_updated'];
+  const details = { alert_temp_high:'อุณหภูมิสูงเกินกำหนด', alert_temp_low:'อุณหภูมิต่ำเกินกำหนด', alert_ph:'pH สูงเกินกำหนด', alert_turbidity:'ความขุ่นสูงเกินกำหนด', normal:'ระบบทำงานปกติ', settings_updated:'ปรับการตั้งค่าเรียบร้อย' };
+  const tanks = [1,2,3,4,5];
+  const tankNames = { 1:'Tank A1 - Tilapia', 2:'Tank B2 - Dory', 3:'Tank C1 - Catfish', 4:'Tank D3 - Clownfish', 5:'Tank E2 - Red Tilapia' };
+  STATE.tankNames = tankNames;
+  const now = Date.now();
+  return Array.from({length: count}, (_, i) => {
+    const tid = tanks[Math.floor(Math.random() * tanks.length)];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const ts = new Date(now - i * 120000 - Math.random() * 60000).toISOString().slice(0,19).replace('T',' ');
+    return { event_id: count - i, tank_id: tid, tank_name: tankNames[tid], event_type: type, event_detail: details[type] + ` (${(Math.random()*5+25).toFixed(2)})`, created_at: ts };
+  });
+}
+
+let isFetching = false;
+async function fetchEvents() {
+  if (isFetching) return; isFetching = true;
+  const params = new URLSearchParams();
+  if (STATE.filterTank) params.set('tank_id', STATE.filterTank);
+  if (STATE.filterType) params.set('type', STATE.filterType);
+  params.set('limit', STATE.filterLimit);
+  try {
+    const res = await fetch(`${CFG.API_URL}?${params}`, { cache: 'no-store' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    STATE.events = json.events;
+    if (json.tank_names) STATE.tankNames = json.tank_names;
+    setSync('ok');
+  } catch(e) {
+    setSync('error');
+    STATE.events = generateMockEvents(parseInt(STATE.filterLimit));
+  } finally { isFetching = false; }
+}
+
+function applyClientFilter() {
+  let evs = [...STATE.events];
+  if (STATE.filterSeverity) evs = evs.filter(e => getSeverity(e.event_type) === STATE.filterSeverity);
+  evs.sort((a, b) => {
+    let va = a[STATE.sortCol], vb = b[STATE.sortCol];
+    if (STATE.sortCol === 'event_id') { va = +va; vb = +vb; }
+    if (va < vb) return STATE.sortDir === 'asc' ? -1 : 1;
+    if (va > vb) return STATE.sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  STATE.filteredEvents = evs;
+}
+
+function sortBy(col) {
+  if (STATE.sortCol === col) STATE.sortDir = STATE.sortDir === 'asc' ? 'desc' : 'asc';
+  else { STATE.sortCol = col; STATE.sortDir = 'desc'; }
+  document.querySelectorAll('.event-table th').forEach(th => {
+    const c = th.dataset.col;
+    th.classList.toggle('sorted', c === col);
+    const arr = th.querySelector('.sort-arrow');
+    if (arr && c === col) arr.textContent = STATE.sortDir === 'asc' ? '↑' : '↓';
+    else if (arr) arr.textContent = '↕';
+  });
+  STATE.page = 0; render();
+}
+
+function render() {
+  applyClientFilter();
+  const evs = STATE.filteredEvents;
+  const total = evs.length;
+  const crits = evs.filter(e => getSeverity(e.event_type) === 'critical').length;
+  const warns = evs.filter(e => getSeverity(e.event_type) === 'warning').length;
+  const norms = evs.filter(e => ['normal','info'].includes(getSeverity(e.event_type))).length;
+  const rate  = total > 0 ? ((crits + warns) / total * 100).toFixed(1) : '0.0';
+
+  setText('sc-total', total); setText('sc-crit', crits); setText('sc-warn', warns);
+  setText('sc-norm', norms); setText('sc-rate', `${rate}%`);
+  setText('hdr-total', total); setText('hdr-crit', crits);
+  if (evs.length > 0) setText('hdr-last', fmtRelTime(evs[0].created_at));
+  setText('table-count', `${total} records`);
+
+  const pages = Math.ceil(total / CFG.PAGE_SIZE);
+  if (STATE.page >= pages && pages > 0) STATE.page = pages - 1;
+  const start = STATE.page * CFG.PAGE_SIZE;
+  const slice = evs.slice(start, start + CFG.PAGE_SIZE);
+  setText('page-info', `Showing ${start + 1}–${Math.min(start + CFG.PAGE_SIZE, total)} of ${total} events`);
+  renderPagination(pages);
+
+  const tbody = document.getElementById('ev-tbody');
+  if (total === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:60px 20px;color:var(--tx-lo);font-family:var(--f-mono);font-size:0.8rem;">ไม่พบ event ที่ตรงเงื่อนไข</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = slice.map(e => {
+    const sev = getSeverity(e.event_type);
+    const sevCls = getSevClass(sev); const sevLbl = getSevLabel(sev);
+    const tname = e.tank_name || STATE.tankNames[e.tank_id] || `Tank ${e.tank_id}`;
+    return `<tr>
+      <td class="text-muted">#${e.event_id}</td>
+      <td class="text-muted text-sm">${fmtDateTime(e.created_at)}</td>
+      <td><span class="event-type-badge info">${escHtml(tname)}</span></td>
+      <td class="text-mid text-sm">${escHtml((e.event_type||'').replace(/_/g,' ').toUpperCase())}</td>
+      <td><span class="event-type-badge ${sevCls}">${sevLbl}</span></td>
+      <td>${escHtml(e.event_detail || '—')}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPagination(pages) {
+  const c = document.getElementById('page-btns');
+  if (pages <= 1) { c.innerHTML = ''; return; }
+  const maxBtns = 7;
+  let html = `<button class="btn btn-ghost text-xs" style="padding:4px 10px;" ${STATE.page===0?'disabled':''} onclick="goPage(${STATE.page-1})">←</button>`;
+  let start = Math.max(0, STATE.page - 3);
+  let end = Math.min(pages-1, start + maxBtns - 1);
+  if (end - start < maxBtns-1) start = Math.max(0, end - maxBtns+1);
+  for (let i = start; i <= end; i++) {
+    html += `<button class="btn ${i===STATE.page?'btn-cyan':'btn-ghost'} text-xs" style="padding:4px 10px;" onclick="goPage(${i})">${i+1}</button>`;
+  }
+  html += `<button class="btn btn-ghost text-xs" style="padding:4px 10px;" ${STATE.page>=pages-1?'disabled':''} onclick="goPage(${STATE.page+1})">→</button>`;
+  c.innerHTML = html;
+}
+function goPage(p) { STATE.page = p; render(); window.scrollTo(0,0); }
+
+function applyFilter() {
+  STATE.filterTank     = document.getElementById('f-tank').value;
+  STATE.filterType     = document.getElementById('f-type').value;
+  STATE.filterSeverity = document.getElementById('f-severity').value;
+  STATE.filterLimit    = parseInt(document.getElementById('f-limit').value) || 100;
+  STATE.page = 0; poll();
+}
+function clearFilter() {
+  ['f-tank','f-type','f-severity'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-limit').value = '100';
+  STATE.filterTank = ''; STATE.filterType = ''; STATE.filterSeverity = '';
+  STATE.filterLimit = 100; STATE.page = 0; poll();
+}
+function toggleAutoRefresh() {
+  STATE.autoRefresh = document.getElementById('auto-refresh-cb').checked;
+  const badge = document.getElementById('live-badge');
+  if (STATE.autoRefresh) { badge.style.opacity='1'; STATE.pollTimer = setInterval(poll, CFG.POLL_MS); }
+  else { badge.style.opacity='0.3'; clearInterval(STATE.pollTimer); }
+}
+
+function exportCSV() {
+  const evs = STATE.filteredEvents;
+  if (!evs.length) { showToast('ไม่มีข้อมูล','warn'); return; }
+  const hdr = ['event_id','created_at','tank_id','tank_name','event_type','severity','event_detail'];
+  const rows = evs.map(e => [e.event_id,e.created_at,e.tank_id,e.tank_name||STATE.tankNames[e.tank_id]||'',e.event_type,getSeverity(e.event_type),e.event_detail].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(','));
+  const blob = new Blob(['\uFEFF' + [hdr.join(','),...rows].join('\n')], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `alerts_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  showToast(`✓ ส่งออก ${evs.length} รายการแล้ว`, 'ok');
+}
+
+function setText(id, val) { const el=document.getElementById(id); if(el&&el.textContent!==String(val))el.textContent=val; }
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtDateTime(str) {
+  if (!str) return '—';
+  try { return new Date(str.replace(' ','T')).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}); }
+  catch { return str; }
+}
+function fmtRelTime(str) {
+  if (!str) return '—';
+  const diff = Date.now() - new Date(str.replace(' ','T')).getTime();
+  const s = Math.floor(diff/1000);
+  if (s<60) return `${s}s ago`; if (s<3600) return `${Math.floor(s/60)}m ago`; return `${Math.floor(s/3600)}h ago`;
+}
+function setSync(state) {
+  const dot=document.getElementById('sync-dot'), lbl=document.getElementById('sync-label');
+  if(!dot)return;
+  if(state==='ok'){dot.className='sync-dot';if(lbl)lbl.textContent='LIVE';}
+  else{dot.className='sync-dot error';if(lbl)lbl.textContent='MOCK DATA';}
+}
+function showToast(msg, type='info') {
+  const c=document.getElementById('toast-container'); if(!c)return;
+  const t=document.createElement('div');
+  t.className=`toast toast-${type==='ok'?'ok':type==='warn'?'warn':'alert'}`;
+  t.textContent=msg; c.appendChild(t);
+  setTimeout(()=>t.parentNode&&t.parentNode.removeChild(t),4000);
+}
+
+async function poll() { await fetchEvents(); render(); }
+function init() {
+  poll();
+  STATE.pollTimer = setInterval(poll, CFG.POLL_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) clearInterval(STATE.pollTimer);
+    else if (STATE.autoRefresh) { poll(); STATE.pollTimer = setInterval(poll, CFG.POLL_MS); }
+  });
+}
+init();
+</script>
+
+<style>
+/* ── alert_log_patch v2.3 styles ── */
+.quick-chips { display:flex; gap:8px; margin-bottom:10px; }
+.chip {
+  padding:5px 14px; border-radius:20px; border:1px solid var(--bdr);
+  background:var(--bg-inset); color:var(--tx-lo); font-size:0.72rem;
+  font-family:var(--f-mono); letter-spacing:.05em; cursor:pointer; transition:.15s;
+}
+.chip:hover { border-color:var(--accent); color:var(--accent); }
+.chip-active { border-color:var(--accent); color:var(--accent); background:rgba(0,200,255,.08); }
+.chip-crit   { border-color:var(--alert); color:var(--alert); }
+
+.search-wrap { position:relative; display:flex; align-items:center; }
+#ev-search {
+  background:var(--bg-inset); border:1px solid var(--bdr); color:var(--tx-hi);
+  padding:5px 32px 5px 10px; border-radius:6px; font-size:0.78rem;
+  font-family:var(--f-mono); outline:none; width:200px; transition:.2s;
+}
+#ev-search:focus { border-color:var(--accent); }
+.search-icon { position:absolute; right:8px; color:var(--tx-lo); font-size:1rem; pointer-events:none; }
+
+/* Row highlights */
+#ev-tbody tr.row-critical { background:rgba(255,80,80,.06); }
+#ev-tbody tr.row-warning  { background:rgba(255,167,38,.05); }
+#ev-tbody tr { cursor:pointer; transition:background .12s; }
+#ev-tbody tr:hover { background:rgba(0,200,255,.06) !important; }
+
+/* Upgraded badges */
+.badge-critical-v2 {
+  display:inline-flex; align-items:center; gap:5px;
+  background:rgba(255,80,80,.15); color:#ff6b6b;
+  border:1px solid rgba(255,80,80,.35); border-radius:4px;
+  padding:2px 8px; font-size:.7rem; font-family:var(--f-mono); font-weight:700;
+}
+.badge-warning-v2 {
+  display:inline-flex; align-items:center; gap:5px;
+  background:rgba(255,167,38,.15); color:#ffa726;
+  border:1px solid rgba(255,167,38,.35); border-radius:4px;
+  padding:2px 8px; font-size:.7rem; font-family:var(--f-mono); font-weight:700;
+}
+.badge-normal-v2 {
+  display:inline-flex; align-items:center; gap:5px;
+  background:rgba(0,232,124,.12); color:#00e87c;
+  border:1px solid rgba(0,232,124,.3); border-radius:4px;
+  padding:2px 8px; font-size:.7rem; font-family:var(--f-mono); font-weight:700;
+}
+.badge-info-v2 {
+  display:inline-flex; align-items:center; gap:5px;
+  background:rgba(0,200,255,.12); color:#00c8ff;
+  border:1px solid rgba(0,200,255,.3); border-radius:4px;
+  padding:2px 8px; font-size:.7rem; font-family:var(--f-mono); font-weight:700;
+}
+
+/* Event detail modal */
+.ev-modal-backdrop {
+  display:none; position:fixed; inset:0;
+  background:rgba(0,0,0,.55); backdrop-filter:blur(3px);
+  z-index:9999; align-items:center; justify-content:center;
+}
+.ev-modal-backdrop.open { display:flex; }
+.ev-modal {
+  background:var(--bg-card); border:1px solid var(--bdr);
+  border-radius:10px; width:480px; max-width:94vw;
+  box-shadow:0 8px 40px rgba(0,0,0,.5);
+}
+.ev-modal-title {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:14px 18px; border-bottom:1px solid var(--bdr);
+  font-family:var(--f-mono); font-size:.85rem; color:var(--accent); letter-spacing:.08em;
+}
+.ev-modal-close {
+  background:none; border:none; color:var(--tx-lo); font-size:1rem;
+  cursor:pointer; padding:2px 6px; border-radius:4px;
+}
+.ev-modal-close:hover { background:var(--bg-inset); color:var(--tx-hi); }
+#ev-modal-content { padding:16px 18px; display:flex; flex-direction:column; gap:10px; }
+.ev-modal-row { display:flex; gap:12px; align-items:baseline; }
+.ev-modal-key {
+  font-family:var(--f-mono); font-size:.7rem; color:var(--tx-lo);
+  letter-spacing:.07em; min-width:90px;
+}
+.ev-modal-val { font-size:.82rem; color:var(--tx-hi); flex:1; word-break:break-word; }
+</style>
+<script>
+/**
+ * AQUAOS — alert_log PATCH v2.3
+ * วิธีใช้: <script src="../static/alert_log_patch.js"></script>
+ * วางหลัง <script> หลักใน alert_log.php
+ *
+ * เพิ่ม:
+ * 1. Quick filter chips (ALL / CRITICAL / WARNING / NORMAL)
+ * 2. Search box กรอง detail/tank ทันที
+ * 3. Row highlight ตาม severity
+ * 4. คลิกแถว → modal แสดง detail
+ * 5. ปรับ severity badge ให้มี dot + icon
+ */
+
+(function () {
+  'use strict';
+
+  /* ── 1. Inject Quick Chips ── */
+  function injectQuickChips() {
+    const filterBar = document.querySelector('.filter-bar');
+    if (!filterBar || document.getElementById('quick-chips')) return;
+
+    const chipsHTML = `
+      <div class="quick-chips" id="quick-chips">
+        <button class="chip chip-active" data-sev="" onclick="setQuickFilter(this,'')">ALL</button>
+        <button class="chip chip-crit"   data-sev="critical" onclick="setQuickFilter(this,'critical')">CRITICAL</button>
+        <button class="chip"             data-sev="warning"  onclick="setQuickFilter(this,'warning')">WARNING</button>
+        <button class="chip"             data-sev="normal"   onclick="setQuickFilter(this,'normal')">NORMAL</button>
+      </div>
+    `;
+    filterBar.insertAdjacentHTML('beforebegin', chipsHTML);
+  }
+
+  /* ── 2. Inject Search Box ── */
+  function injectSearchBox() {
+    const filterBar = document.querySelector('.filter-bar');
+    if (!filterBar || document.getElementById('ev-search')) return;
+
+    const searchHTML = `
+      <div class="search-wrap" style="margin-left:auto;">
+        <input type="text" id="ev-search" placeholder="ค้นหา detail / ตู้..." oninput="applySearch()">
+        <span class="search-icon">⌕</span>
+      </div>
+    `;
+    filterBar.insertAdjacentHTML('beforeend', searchHTML);
+  }
+
+  /* ── 3. Inject Event Detail Modal ── */
+  function injectModal() {
+    if (document.getElementById('ev-detail-modal')) return;
+    const modalHTML = `
+      <div class="ev-modal-backdrop" id="ev-detail-modal" onclick="closeEvModal(event)">
+        <div class="ev-modal" id="ev-modal-box">
+          <div class="ev-modal-title">
+            <span>EVENT DETAIL</span>
+            <button class="ev-modal-close" onclick="document.getElementById('ev-detail-modal').classList.remove('open')">✕</button>
+          </div>
+          <div id="ev-modal-content"></div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+  }
+
+  /* ── 4. Patch render() to add row classes + click handler ── */
+  function patchRender() {
+    if (!window.__origRender) {
+      window.__origRender = window.render;
+    }
+
+    window.render = function () {
+      window.__origRender();
+      applyRowClasses();
+      applyRowClickHandlers();
+      applySearch(); // re-apply search after render
+    };
+  }
+
+  /* ── 5. Apply row CSS classes based on severity ── */
+  function applyRowClasses() {
+    const rows = document.querySelectorAll('#ev-tbody tr');
+    rows.forEach(tr => {
+      const typeTd = tr.cells[3];
+      if (!typeTd) return;
+      const typeText = (typeTd.textContent || '').toLowerCase().replace(/\s/g,'_');
+      const sev = getSev(typeText);
+      tr.classList.remove('row-critical','row-warning','row-normal');
+      if (sev === 'critical') tr.classList.add('row-critical');
+      else if (sev === 'warning') tr.classList.add('row-warning');
+      else tr.classList.add('row-normal');
+
+      // Upgrade severity badge in column 4 (index 4)
+      const sevTd = tr.cells[4];
+      if (sevTd) {
+        const cls = sev === 'critical' ? 'badge-critical-v2'
+                  : sev === 'warning'  ? 'badge-warning-v2'
+                  : sev === 'info'     ? 'badge-info-v2'
+                  : 'badge-normal-v2';
+        const lbl = sev.toUpperCase();
+        sevTd.innerHTML = `<span class="${cls}">${lbl}</span>`;
+      }
+    });
+  }
+
+  /* ── 6. Row click → modal ── */
+  function applyRowClickHandlers() {
+    document.querySelectorAll('#ev-tbody tr').forEach(tr => {
+      tr.onclick = function () { openEvDetail(tr); };
+    });
+  }
+
+  function openEvDetail(tr) {
+    const cells = tr.cells;
+    if (!cells || cells.length < 6) return;
+    const id     = cells[0]?.textContent.trim();
+    const time   = cells[1]?.textContent.trim();
+    const tank   = cells[2]?.textContent.trim();
+    const type   = cells[3]?.textContent.trim();
+    const detail = cells[5]?.textContent.trim();
+
+    const sev = getSev((type||'').toLowerCase().replace(/\s/g,'_'));
+    const sevBadge = sev === 'critical'
+      ? '<span class="badge-critical-v2">CRITICAL</span>'
+      : sev === 'warning'
+        ? '<span class="badge-warning-v2">WARNING</span>'
+        : '<span class="badge-normal-v2">NORMAL</span>';
+
+    document.getElementById('ev-modal-content').innerHTML = `
+      <div class="ev-modal-row">
+        <span class="ev-modal-key">EVENT ID</span>
+        <span class="ev-modal-val">${escH(id)}</span>
+      </div>
+      <div class="ev-modal-row">
+        <span class="ev-modal-key">TIMESTAMP</span>
+        <span class="ev-modal-val">${escH(time)}</span>
+      </div>
+      <div class="ev-modal-row">
+        <span class="ev-modal-key">TANK</span>
+        <span class="ev-modal-val">${escH(tank)}</span>
+      </div>
+      <div class="ev-modal-row">
+        <span class="ev-modal-key">TYPE</span>
+        <span class="ev-modal-val">${escH(type)}</span>
+      </div>
+      <div class="ev-modal-row">
+        <span class="ev-modal-key">SEVERITY</span>
+        <span class="ev-modal-val">${sevBadge}</span>
+      </div>
+      <div class="ev-modal-row">
+        <span class="ev-modal-key">DETAIL</span>
+        <span class="ev-modal-val">${escH(detail)}</span>
+      </div>
+    `;
+
+    document.getElementById('ev-detail-modal').classList.add('open');
+  }
+
+  window.closeEvModal = function (e) {
+    if (e.target === document.getElementById('ev-detail-modal')) {
+      e.target.classList.remove('open');
+    }
+  };
+
+  /* ── 7. Quick chip filter ── */
+  window.setQuickFilter = function (el, sev) {
+    document.querySelectorAll('.quick-chips .chip').forEach(c => c.classList.remove('chip-active'));
+    el.classList.add('chip-active');
+    // sync with f-severity dropdown
+    const sel = document.getElementById('f-severity');
+    if (sel) { sel.value = sev; }
+    if (window.STATE) window.STATE.filterSeverity = sev;
+    if (window.STATE) window.STATE.page = 0;
+    if (window.render) window.render();
+  };
+
+  /* ── 8. Client-side search ── */
+  window.applySearch = function () {
+    const q = (document.getElementById('ev-search')?.value || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('#ev-tbody tr');
+    rows.forEach(tr => {
+      if (!q) { tr.style.display = ''; return; }
+      const txt = (tr.textContent || '').toLowerCase();
+      tr.style.display = txt.includes(q) ? '' : 'none';
+    });
+  };
+
+  /* ── Helpers ── */
+  function getSev(type) {
+    if (type.includes('alert') || type.includes('critical')) return 'critical';
+    if (type.includes('warn'))  return 'warning';
+    if (type === 'normal')      return 'normal';
+    return 'info';
+  }
+
+  function escH(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  /* ── Init ── */
+  function init() {
+    injectQuickChips();
+    injectSearchBox();
+    injectModal();
+    patchRender();
+    // re-apply when DOM updates
+    const observer = new MutationObserver(() => {
+      applyRowClasses();
+      applyRowClickHandlers();
+    });
+    const tbody = document.getElementById('ev-tbody');
+    if (tbody) observer.observe(tbody, { childList: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+})();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AquaOS — History</title>
+<link rel="stylesheet" href="../static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="index.html" class="tb-logo">
+    <svg class="logo-svg" viewBox="0 0 38 38" fill="none">
+      <rect x="1.5" y="1.5" width="35" height="35" rx="3" stroke="#00c8ff" stroke-width="1.2"/>
+      <path d="M6 26 Q11 18 16 22 Q21 26 26 18 Q31 11 34 15" stroke="#00c8ff" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <circle cx="9"  cy="21" r="2" fill="#00e87c"/>
+      <circle cx="19" cy="24" r="2" fill="#00c8ff"/>
+      <circle cx="28" cy="16" r="2" fill="#ffa726"/>
+      <path d="M14 12 L14 7 L24 7 L24 12" stroke="#00c8ff" stroke-width="1.2" fill="none"/>
+      <path d="M19 7 L19 4" stroke="#00c8ff" stroke-width="1.2"/>
+    </svg>
+    <div class="tb-logo-text">
+      <div class="logo-name">AQUAOS</div>
+      <div class="logo-sub">SMART AQUACULTURE CONTROL</div>
+    </div>
+  </a>
+
+  <nav class="tb-nav">
+    <a href="index.html">DASHBOARD</a>
+    <a href="history.html" class="active">HISTORY</a>
+    <a href="alert_log.html">ALERTS</a>
+    <a href="report.html">REPORT</a>
+    <a href="settings.html">SETTINGS</a>
+    <a href="simulator.html">SIMULATOR</a>
+    <a href="device_health.html">DEVICE HEALTH</a>
+  </nav>
+
+  <div class="tb-stats">
+    <div class="tb-stat">
+      <span class="tb-stat-label">API</span>
+      <span class="tb-stat-val" id="hdr-api">—</span>
+    </div>
+    <div class="tb-stat">
+      <span class="tb-stat-label">TANKS</span>
+      <span class="tb-stat-val" id="hdr-tanks">—</span>
+    </div>
+    <div class="tb-stat">
+      <span class="tb-stat-label">ALERTS</span>
+      <span class="tb-stat-val" id="hdr-alerts">—</span>
+    </div>
+
+    <div class="tb-sync">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span class="sync-label" id="sync-label">LIVE</span>
+    </div>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="page-header">
+    <div>
+      <div class="page-title">ประวัติข้อมูลเซนเซอร์</div>
+      <div class="page-subtitle">SENSOR LOG HISTORY — SELECT TANK &amp; TIME RANGE TO LOAD</div>
+    </div>
+    <button class="btn btn-ok" onclick="exportCSV()">▼ EXPORT CSV</button>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <div class="field-group">
+      <span class="field-label">ตู้ปลา</span>
+      <select class="form-select" id="sel-tank">
+        <option value="1">Tank 01 — ปลานิล A1</option>
+        <option value="2">Tank 02 — Dory B2</option>
+        <option value="3">Tank 03 — ปลาดุก C1</option>
+        <option value="4">Tank 04 — Clownfish D3</option>
+        <option value="5">Tank 05 — ปลาทับทิม E2</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <span class="field-label">ช่วงเวลา</span>
+      <select class="form-select" id="sel-hours">
+        <option value="1">1 ชั่วโมงล่าสุด</option>
+        <option value="6">6 ชั่วโมงล่าสุด</option>
+        <option value="24" selected>24 ชั่วโมงล่าสุด</option>
+        <option value="72">3 วันล่าสุด</option>
+        <option value="168">7 วันล่าสุด</option>
+      </select>
+    </div>
+    <div class="field-group">
+      <span class="field-label">&nbsp;</span>
+      <button class="btn btn-cyan" onclick="loadHistory()">▶ LOAD DATA</button>
+    </div>
+    <div class="field-group">
+      <span class="field-label">&nbsp;</span>
+      <button class="btn btn-ghost" onclick="loadMockHistory()">◈ DEMO MODE</button>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="stat-chips">
+    <div class="stat-chip" style="border-left:3px solid var(--alert);">
+      <div class="stat-chip-label">TEMPERATURE AVG</div>
+      <div class="stat-chip-val" id="sum-temp">—</div>
+      <div class="text-muted text-xs">°C AVERAGE</div>
+    </div>
+    <div class="stat-chip" style="border-left:3px solid var(--ok);">
+      <div class="stat-chip-label">pH AVERAGE</div>
+      <div class="stat-chip-val" id="sum-ph">—</div>
+      <div class="text-muted text-xs">pH LEVEL</div>
+    </div>
+    <div class="stat-chip" style="border-left:3px solid var(--warn);">
+      <div class="stat-chip-label">TURBIDITY AVG</div>
+      <div class="stat-chip-val" id="sum-turb">—</div>
+      <div class="text-muted text-xs">NTU</div>
+    </div>
+    <div class="stat-chip" style="border-left:3px solid var(--cyan);">
+      <div class="stat-chip-label">ALERT EVENTS</div>
+      <div class="stat-chip-val" id="sum-alerts">—</div>
+      <div class="text-muted text-xs">ครั้งในช่วงนี้</div>
+    </div>
+  </div>
+
+  <!-- Charts Grid -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
+
+    <!-- Temperature chart (full width) -->
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-head">
+        <div>
+          <div class="card-title">อุณหภูมิน้ำ</div>
+          <div class="card-sub">TEMPERATURE TREND (°C)</div>
+        </div>
+        <span class="event-type-badge alert">TEMP</span>
+      </div>
+      <div style="padding:16px;">
+        <canvas style="width:100%;display:block;" id="chart-temp" height="180"></canvas>
+        <div id="nd-temp" class="text-muted text-sm" style="text-align:center;padding:48px 20px;font-family:var(--f-mono);">กดปุ่ม LOAD DATA หรือ DEMO MODE เพื่อดูกราฟ</div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--bdr);">
+        <div class="flex flex-center gap-2 text-muted text-xs"><div style="width:8px;height:3px;border-radius:1px;background:#ff3d3d;"></div>อุณหภูมิ (°C)</div>
+        <div class="flex flex-center gap-2 text-muted text-xs"><div style="width:8px;height:3px;border-radius:1px;background:rgba(255,167,38,0.5);"></div>Max threshold</div>
+        <div class="flex flex-center gap-2 text-muted text-xs"><div style="width:8px;height:3px;border-radius:1px;background:rgba(0,200,255,0.5);"></div>Min threshold</div>
+      </div>
+    </div>
+
+    <!-- pH chart -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">ค่า pH</div>
+          <div class="card-sub">pH LEVEL TREND</div>
+        </div>
+        <span class="event-type-badge ok">pH</span>
+      </div>
+      <div style="padding:16px;">
+        <canvas style="width:100%;display:block;" id="chart-ph" height="160"></canvas>
+        <div id="nd-ph" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Turbidity chart -->
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <div class="card-title">ความขุ่นของน้ำ</div>
+          <div class="card-sub">TURBIDITY (NTU)</div>
+        </div>
+        <span class="event-type-badge warn">NTU</span>
+      </div>
+      <div style="padding:16px;">
+        <canvas style="width:100%;display:block;" id="chart-turb" height="160"></canvas>
+        <div id="nd-turb" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Water level chart (full width) -->
+    <div class="card" style="grid-column:1/-1;">
+      <div class="card-head">
+        <div>
+          <div class="card-title">ระดับน้ำ</div>
+          <div class="card-sub">WATER LEVEL (%)</div>
+        </div>
+        <span class="event-type-badge info">H₂O</span>
+      </div>
+      <div style="padding:16px;">
+        <canvas style="width:100%;display:block;" id="chart-water" height="120"></canvas>
+        <div id="nd-water" style="display:none;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Event Log Table -->
+  <div class="card mb-4">
+    <div class="card-head">
+      <div>
+        <div class="card-title">ประวัติ Alert &amp; Events</div>
+        <div class="card-sub">EVENT LOG — MOST RECENT FIRST</div>
+      </div>
+      <span id="event-count" class="badge badge-offline">0 EVENTS</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="event-table">
+        <thead><tr><th>เวลา</th><th>ประเภท</th><th>รายละเอียด</th></tr></thead>
+        <tbody id="event-tbody">
+          <tr><td colspan="3" class="text-muted text-xs" style="text-align:center;padding:40px;">กดปุ่ม LOAD DATA หรือ DEMO MODE เพื่อดูข้อมูล</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Sensor Log Table -->
+  <div class="card">
+    <div class="card-head">
+      <div>
+        <div class="card-title">บันทึกค่าเซนเซอร์ทั้งหมด</div>
+        <div class="card-sub">SENSOR LOG RAW DATA</div>
+      </div>
+      <span id="log-count" class="badge badge-offline">0 RECORDS</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="event-table">
+        <thead>
+          <tr>
+            <th>#</th><th>เวลาบันทึก</th><th>อุณหภูมิ (°C)</th>
+            <th>pH</th><th>ความขุ่น (NTU)</th><th>ระดับน้ำ (%)</th>
+          </tr>
+        </thead>
+        <tbody id="log-tbody">
+          <tr><td colspan="6" class="text-muted text-xs" style="text-align:center;padding:40px;">กดปุ่ม LOAD DATA หรือ DEMO MODE เพื่อดูข้อมูล</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<footer class="statusbar">
+  <div class="sb-item"><div class="sb-dot" id="sb-dot"></div><span id="sb-conn">SYSTEM ONLINE</span></div>
+  <div class="sb-item" id="sb-page-info"></div>
+  <div class="sb-item">VER 2.2.0</div>
+  <div class="sb-right" id="sb-time">—</div>
+</footer>
+
+<script>
+setInterval(() => {
+  const el = document.getElementById('sb-time'); if(el) el.textContent = new Date().toLocaleTimeString('th-TH',{hour12:false});
+  const ht = document.getElementById('hdr-time'); if(ht) ht.textContent = new Date().toLocaleTimeString('th-TH',{hour12:false});
+}, 1000);
+
+let currentLogs = [], currentEvents = [], currentSettings = null;
+const THRESH = { min_temp:24, max_temp:32, trigger_ph:8.5, trigger_turbidity:50 };
+
+function generateMockHistory(hours) {
+  const count = Math.min(hours * 6, 120);
+  const logs = []; const now = Date.now();
+  let temp=27.5, ph=7.1, turb=22, water=82;
+  for (let i=count; i>=0; i--) {
+    const dt = new Date(now - i*10*60000);
+    temp = Math.max(22, Math.min(36, temp + (Math.random()-0.5)*0.6));
+    ph   = Math.max(6,  Math.min(9,  ph   + (Math.random()-0.5)*0.08));
+    turb = Math.max(5,  Math.min(80, turb + (Math.random()-0.5)*2));
+    water= Math.max(40, Math.min(95, water+ (Math.random()-0.5)*0.8));
+    logs.push({ log_id:i+1, recorded_at:dt.toISOString(), temperature:+temp.toFixed(1), ph_level:+ph.toFixed(2), turbidity:+turb.toFixed(1), water_level:+water.toFixed(0) });
+  }
+  const events = [
+    { event_type:'auto_feed',       event_detail:'ให้อาหารอัตโนมัติ 250g',           created_at:new Date(now-3600000).toISOString() },
+    { event_type:'alert_temp_high', event_detail:'อุณหภูมิสูงเกิน 32°C พบ 33.1°C',  created_at:new Date(now-7200000).toISOString() },
+    { event_type:'alert_turbidity', event_detail:'ความขุ่น 55 NTU เกินกำหนด 50 NTU',created_at:new Date(now-10800000).toISOString() },
+    { event_type:'alert_ph',        event_detail:'pH 8.7 เกินกำหนด 8.5',             created_at:new Date(now-14400000).toISOString() },
+    { event_type:'settings_updated',event_detail:'target_temp=28°C, auto_feed=on',    created_at:new Date(now-18000000).toISOString() },
+    { event_type:'alert_temp_low',  event_detail:'อุณหภูมิต่ำกว่า 24°C พบ 23.2°C',  created_at:new Date(now-21600000).toISOString() },
+  ];
+  return { logs, events, settings: THRESH };
+}
+
+async function loadHistory() {
+  const tankId = document.getElementById('sel-tank').value;
+  const hours  = document.getElementById('sel-hours').value;
+  setLoading();
+  try {
+    const res = await fetch(`../api/get_history.php?tank_id=${tankId}&hours=${hours}&limit=200`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
+    if (!json.success || !json.logs || json.logs.length===0) throw new Error('empty');
+    render(json.logs, json.events||[], json.settings||THRESH);
+    document.getElementById('sb-page-info').textContent = `TANK ${tankId} — ${json.logs.length} RECORDS`;
+  } catch(e) { console.warn('API unavailable:', e.message); loadMockHistory(); }
+}
+function loadMockHistory() {
+  const hours = parseInt(document.getElementById('sel-hours').value);
+  const mock = generateMockHistory(hours);
+  render(mock.logs, mock.events, mock.settings);
+  document.getElementById('sb-page-info').textContent = `DEMO MODE — ${mock.logs.length} RECORDS`;
+}
+function setLoading() {
+  document.getElementById('event-tbody').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:40px;font-family:var(--f-mono);font-size:0.78rem;color:var(--tx-lo);">LOADING...</td></tr>';
+  document.getElementById('log-tbody').innerHTML   = '<tr><td colspan="6" style="text-align:center;padding:40px;font-family:var(--f-mono);font-size:0.78rem;color:var(--tx-lo);">LOADING...</td></tr>';
+}
+function render(logs, events, settings) {
+  currentLogs = logs; currentEvents = events; currentSettings = settings || THRESH;
+  const hdrRec = document.getElementById('hdr-records'); if(hdrRec) hdrRec.textContent = logs.length;
+  renderSummary(logs, events); renderCharts(logs, currentSettings);
+  renderEventTable(events); renderLogTable(logs, currentSettings);
+}
+function renderSummary(logs, events) {
+  if (!logs.length) return;
+  const avg = key => { const v=logs.map(r=>parseFloat(r[key])).filter(v=>!isNaN(v)); return v.length?(v.reduce((a,b)=>a+b,0)/v.length).toFixed(2):'—'; };
+  document.getElementById('sum-temp').textContent   = avg('temperature');
+  document.getElementById('sum-ph').textContent     = avg('ph_level');
+  document.getElementById('sum-turb').textContent   = avg('turbidity');
+  document.getElementById('sum-alerts').textContent = events.length;
+}
+function renderCharts(logs, sets) {
+  if (!logs.length) return;
+  const thin = (arr, max) => arr.length<=max ? arr : arr.filter((_,i)=>i%Math.ceil(arr.length/max)===0);
+  const thinned = thin(logs, 80);
+  const labels = thinned.map(r => { const d=new Date(r.recorded_at); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; });
+  const temps=thinned.map(r=>parseFloat(r.temperature)), phs=thinned.map(r=>parseFloat(r.ph_level));
+  const turbs=thinned.map(r=>parseFloat(r.turbidity)), waters=thinned.map(r=>parseFloat(r.water_level));
+  drawLineChart('chart-temp', labels, [{data:temps,color:'#ff3d3d',fill:true}], {hLines:[{y:sets.max_temp||32,color:'#ffa72660',dash:[5,4]},{y:sets.min_temp||24,color:'#00c8ff60',dash:[5,4]}]});
+  document.getElementById('nd-temp').style.display='none';
+  drawLineChart('chart-ph',   labels, [{data:phs,  color:'#00e87c',fill:true}], {hLines:[{y:sets.trigger_ph||8.5,color:'#ffa72660',dash:[4,3]}]});
+  drawLineChart('chart-turb', labels, [{data:turbs, color:'#ffa726',fill:true}], {hLines:[{y:sets.trigger_turbidity||50,color:'#ff3d3d60',dash:[4,3]}]});
+  drawLineChart('chart-water',labels, [{data:waters,color:'#00c8ff',fill:true}], {yMin:0,yMax:100,hLines:[{y:30,color:'#ff3d3d60',dash:[4,3]},{y:50,color:'#ffa72660',dash:[4,3]}]});
+}
+function drawLineChart(canvasId, labels, datasets, opts={}) {
+  const canvas=document.getElementById(canvasId); if(!canvas)return;
+  const dpr=window.devicePixelRatio||1, W=canvas.parentElement.clientWidth-32, H=canvas.height||180;
+  canvas.width=W*dpr; canvas.height=H*dpr; canvas.style.width=W+'px'; canvas.style.height=H+'px';
+  const ctx=canvas.getContext('2d'); ctx.scale(dpr,dpr); ctx.clearRect(0,0,W,H);
+  const PAD={top:16,right:16,bottom:28,left:44}, CW=W-PAD.left-PAD.right, CH=H-PAD.top-PAD.bottom;
+  const allVals=datasets.flatMap(d=>d.data).filter(v=>!isNaN(v));
+  let yMin=opts.yMin??(Math.min(...allVals)-(Math.max(...allVals)-Math.min(...allVals))*0.1);
+  let yMax=opts.yMax??(Math.max(...allVals)+(Math.max(...allVals)-Math.min(...allVals))*0.1);
+  if(yMin===yMax){yMin-=1;yMax+=1;}
+  const xScale=i=>PAD.left+(i/(labels.length-1))*CW, yScale=v=>PAD.top+CH-((v-yMin)/(yMax-yMin))*CH;
+  ctx.strokeStyle='#112238'; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const y=PAD.top+(i/4)*CH; ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+CW,y);ctx.stroke(); const val=yMax-(i/4)*(yMax-yMin); ctx.fillStyle='#2a4a64';ctx.font='9px Share Tech Mono,monospace';ctx.textAlign='right';ctx.fillText(val.toFixed(1),PAD.left-6,y+4);}
+  (opts.hLines||[]).forEach(hl=>{if(hl.y<yMin||hl.y>yMax)return;const y=yScale(hl.y);ctx.setLineDash(hl.dash||[]);ctx.strokeStyle=hl.color;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(PAD.left,y);ctx.lineTo(PAD.left+CW,y);ctx.stroke();ctx.setLineDash([]);});
+  const xStep=Math.ceil(labels.length/8); ctx.fillStyle='#2a4a64';ctx.font='9px Share Tech Mono,monospace';ctx.textAlign='center';
+  labels.forEach((lbl,i)=>{if(i%xStep!==0)return;ctx.fillText(lbl,xScale(i),H-6);});
+  datasets.forEach(ds=>{
+    const pts=ds.data.map((v,i)=>({x:xScale(i),y:yScale(v)}));
+    if(ds.fill){ctx.beginPath();ctx.moveTo(pts[0].x,yScale(yMin));pts.forEach(p=>ctx.lineTo(p.x,p.y));ctx.lineTo(pts[pts.length-1].x,yScale(yMin));ctx.closePath();const grad=ctx.createLinearGradient(0,PAD.top,0,PAD.top+CH);grad.addColorStop(0,ds.color+'30');grad.addColorStop(0.6,ds.color+'08');grad.addColorStop(1,ds.color+'00');ctx.fillStyle=grad;ctx.fill();}
+    ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.strokeStyle=ds.color;ctx.lineWidth=1.5;ctx.lineJoin='round';ctx.stroke();
+    const last=pts[pts.length-1];ctx.beginPath();ctx.arc(last.x,last.y,3,0,Math.PI*2);ctx.fillStyle=ds.color;ctx.fill();
+  });
+}
+
+const EVENT_LABELS = {
+  alert_temp_high:['TEMP HIGH','alert'],alert_temp_low:['TEMP LOW','info'],alert_turbidity:['TURBIDITY','warn'],
+  alert_ph:['pH HIGH','ok'],auto_feed:['AUTO FEED','info'],manual_feed:['MANUAL FEED','info'],settings_updated:['SETTINGS','info'],
+};
+function renderEventTable(events) {
+  const tbody=document.getElementById('event-tbody');
+  document.getElementById('event-count').textContent=`${events.length} EVENTS`;
+  if (!events.length) { tbody.innerHTML='<tr><td colspan="3" style="text-align:center;padding:40px;font-family:var(--f-mono);font-size:0.72rem;color:var(--tx-lo);">ไม่มี Event ในช่วงเวลานี้</td></tr>'; return; }
+  tbody.innerHTML = events.map(e => {
+    const [label,cls] = EVENT_LABELS[e.event_type] || [e.event_type.toUpperCase(),'info'];
+    const dt = new Date(e.created_at).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    return `<tr><td class="text-muted text-sm">${dt}</td><td><span class="event-type-badge ${cls}">${label}</span></td><td>${e.event_detail||'—'}</td></tr>`;
+  }).join('');
+}
+function renderLogTable(logs, sets) {
+  const tbody=document.getElementById('log-tbody');
+  document.getElementById('log-count').textContent=`${logs.length} RECORDS`;
+  if (!logs.length) { tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:40px;font-family:var(--f-mono);font-size:0.72rem;color:var(--tx-lo);">ไม่มีข้อมูลในช่วงเวลานี้</td></tr>'; return; }
+  const mn=sets.min_temp||24, mx=sets.max_temp||32, tPH=sets.trigger_ph||8.5, tTurb=sets.trigger_turbidity||50;
+  const slice=logs.slice(-100).reverse();
+  tbody.innerHTML = slice.map((r,idx) => {
+    const dt=new Date(r.recorded_at).toLocaleString('th-TH',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+    const tempCls=r.temperature>mx||r.temperature<mn?'text-alert':r.temperature>mx-2?'text-warn':'text-ok';
+    const phCls=r.ph_level>tPH?'text-alert':r.ph_level<6?'text-warn':'text-ok';
+    const turbCls=r.turbidity>tTurb?'text-alert':r.turbidity>tTurb*0.8?'text-warn':'';
+    const waterCls=r.water_level<30?'text-alert':r.water_level<50?'text-warn':'';
+    return `<tr>
+      <td class="text-muted text-sm">${idx+1}</td>
+      <td class="text-muted text-sm">${dt}</td>
+      <td class="${tempCls} font-bold">${parseFloat(r.temperature).toFixed(2)}</td>
+      <td class="${phCls} font-bold">${parseFloat(r.ph_level).toFixed(2)}</td>
+      <td class="${turbCls} font-bold">${parseFloat(r.turbidity).toFixed(2)}</td>
+      <td class="${waterCls} font-bold">${parseFloat(r.water_level).toFixed(2)}%</td>
+    </tr>`;
+  }).join('');
+}
+function exportCSV() {
+  if (!currentLogs.length) { alert('ไม่มีข้อมูล — กดโหลดข้อมูลก่อน'); return; }
+  const header = 'log_id,recorded_at,temperature,ph_level,turbidity,water_level\n';
+  const rows = currentLogs.map(r=>`${r.log_id},${r.recorded_at},${r.temperature},${r.ph_level},${r.turbidity},${r.water_level}`).join('\n');
+  const blob = new Blob(['\uFEFF'+header+rows],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`aquaos_tank${document.getElementById('sel-tank').value}_${Date.now()}.csv`; a.click();
+  URL.revokeObjectURL(a.href);
+}
+window.addEventListener('load', ()=>loadMockHistory());
+</script>
+</body>
+</html>

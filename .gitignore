@@ -1,0 +1,32 @@
+# ── Secrets (อย่าลืม!) ──────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# ── DB backups / dumps ──────────────
+*.sql.gz
+db_backup_*.sql
+mysql_data/
+db_data/
+
+# ── PHP / Composer ──────────────────
+vendor/
+composer.lock
+*.log
+
+# ── Editor / OS ─────────────────────
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# ── Cache / temp ────────────────────
+/tmp/
+/cache/
+*.cache
